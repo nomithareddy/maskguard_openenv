@@ -8,68 +8,77 @@
 FastAPI application for the Maskguard Openenv Environment.
 
 This module creates an HTTP server that exposes the MaskguardOpenenvEnvironment
-over HTTP and WebSocket endpoints, compatible with EnvClient.
-
-Endpoints:
-    - POST /reset: Reset the environment
-    - POST /step: Execute an action
-    - GET /state: Get current environment state
-    - GET /schema: Get action/observation schemas
-    - WS /ws: WebSocket endpoint for persistent sessions
-
-Usage:
-    # Development (with auto-reload):
-    uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
-
-    # Production:
-    uvicorn server.app:app --host 0.0.0.0 --port 8000 --workers 4
-
-    # Or run directly:
-    python -m server.app
+with explicit reset, step, and submit endpoints for policy-aware masking.
 """
 
-try:
-    from openenv.core.env_server.http_server import create_app
-except Exception as e:  # pragma: no cover
-    raise ImportError(
-        "openenv is required for the web interface. Install dependencies with '\n    uv sync\n'"
-    ) from e
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 try:
-    from ..models import MaskguardOpenenvAction, MaskguardOpenenvObservation
-    from .maskguard_openenv_environment import MaskguardOpenenvEnvironment
+    from ..server.maskguard_openenv_environment import MaskguardOpenenvEnvironment
 except ModuleNotFoundError:
-    from models import MaskguardOpenenvAction, MaskguardOpenenvObservation
     from server.maskguard_openenv_environment import MaskguardOpenenvEnvironment
 
+app = FastAPI(title="Maskguard Openenv Environment", version="0.1.0")
+environment = MaskguardOpenenvEnvironment()
 
-# Create the app with web interface and README integration
-app = create_app(
-    MaskguardOpenenvEnvironment,
-    MaskguardOpenenvAction,
-    MaskguardOpenenvObservation,
-    env_name="maskguard_openenv",
-    max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
-)
+
+class ResetRequest(BaseModel):
+    text: Optional[str] = None
+    policy_mode: str = Field(default="GDPR")
+    target_entities: List[str] = Field(default_factory=list)
+
+
+class StepRequest(BaseModel):
+    action_type: str
+    entity_id: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_value: Optional[str] = None
+
+
+@app.post("/reset")
+def reset_environment(request: ResetRequest) -> Dict[str, Any]:
+    observation = environment._env.reset(
+        text=request.text,
+        policy_mode=request.policy_mode,
+        target_entities=request.target_entities,
+    )
+    environment._state.episode_id = environment._env.episode_id
+    environment._state.step_count = environment._env.step_count
+    return {
+        "observation": observation,
+        "reward": 0.0,
+        "done": False,
+        "info": {"status": "reset"},
+    }
+
+
+@app.post("/step")
+def step_environment(request: StepRequest) -> Dict[str, Any]:
+    observation = environment.step(request)
+    return {
+        "observation": observation.model_dump(exclude={"reward", "done", "metadata"}),
+        "reward": observation.reward,
+        "done": observation.done,
+        "info": observation.metadata,
+    }
+
+
+@app.post("/submit")
+def submit_environment() -> Dict[str, Any]:
+    submission_result = environment.submit()
+    return {
+        "observation": environment._env._build_observation(),
+        "reward": submission_result["reward"],
+        "done": submission_result["accepted"],
+        "info": submission_result,
+    }
 
 
 def main(host: str = "0.0.0.0", port: int = 8000):
-    """
-    Entry point for direct execution via uv run or python -m.
-
-    This function enables running the server without Docker:
-        uv run --project . server
-        uv run --project . server --port 8001
-        python -m maskguard_openenv.server.app
-
-    Args:
-        host: Host address to bind to (default: "0.0.0.0")
-        port: Port number to listen on (default: 8000)
-
-    For production deployments, consider using uvicorn directly with
-    multiple workers:
-        uvicorn maskguard_openenv.server.app:app --workers 4
-    """
+    """Entry point for direct execution via uv run or python -m."""
     import uvicorn
 
     uvicorn.run(app, host=host, port=port)

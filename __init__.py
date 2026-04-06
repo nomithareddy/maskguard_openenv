@@ -7,9 +7,11 @@
 """Maskguard Openenv Environment."""
 
 from .client import MaskguardOpenenvEnv
+from .env import MaskGuardEnv
 from .models import MaskguardOpenenvAction, MaskguardOpenenvObservation
 
 __all__ = [
+    "MaskGuardEnv",
     "MaskguardOpenenvAction",
     "MaskguardOpenenvObservation",
     "MaskguardOpenenvEnv",

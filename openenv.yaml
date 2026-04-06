@@ -1,7 +1,36 @@
 spec_version: 1
 name: maskguard_openenv
+description: Policy-aware OpenEnv reinforcement learning environment for iterative PII masking and compliance validation.
 type: space
 runtime: fastapi
 app: server.app:app
 port: 8000
-
+observation_space:
+  - text
+  - detected_entities
+  - masked_entities
+  - remaining_entities
+  - policy_mode
+  - step_count
+action_space:
+  - detect_entity
+  - mask_entity
+  - skip_entity
+  - validate_document
+  - recheck_entities
+  - submit_result
+reward_function:
+  correct_mask: 2
+  missed_entity: -2
+  overmask: -1
+  compliance_success: 5
+  invalid_masking: -3
+policy_modes:
+  - GDPR
+  - HIPAA
+  - FINANCE
+evaluation_metrics:
+  - precision
+  - recall
+  - f1_score
+  - compliance_score
