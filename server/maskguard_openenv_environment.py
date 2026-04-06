@@ -46,6 +46,7 @@ class MaskguardOpenenvEnvironment(Environment):
             remaining_entities=observation["remaining_entities"],
             policy_mode=observation["policy_mode"],
             step_count=observation["step_count"],
+            task_name=observation["task_name"],
             done=False,
             reward=0.0,
             metadata={"status": "reset"},
@@ -54,11 +55,17 @@ class MaskguardOpenenvEnvironment(Environment):
     def step(self, action: MaskguardOpenenvAction) -> MaskguardOpenenvObservation:  # type: ignore[override]
         """Execute one masking action in the environment."""
         payload = action.model_dump(exclude_none=True)
-        if payload.get("text") or payload.get("policy_mode"):
+        if (
+            payload.get("text")
+            or payload.get("policy_mode")
+            or payload.get("task_name")
+            or payload.get("target_entities")
+        ):
             observation = self._env.reset(
                 text=payload.get("text"),
                 policy_mode=payload.get("policy_mode"),
-                target_entities=[],
+                target_entities=payload.get("target_entities"),
+                task_name=payload.get("task_name"),
             )
             return MaskguardOpenenvObservation(
                 text=observation["text"],
@@ -67,6 +74,7 @@ class MaskguardOpenenvEnvironment(Environment):
                 remaining_entities=observation["remaining_entities"],
                 policy_mode=observation["policy_mode"],
                 step_count=observation["step_count"],
+                task_name=observation["task_name"],
                 done=False,
                 reward=0.0,
                 metadata={"status": "reset_via_step"},
@@ -81,6 +89,7 @@ class MaskguardOpenenvEnvironment(Environment):
             remaining_entities=observation["remaining_entities"],
             policy_mode=observation["policy_mode"],
             step_count=observation["step_count"],
+            task_name=observation["task_name"],
             done=done,
             reward=reward,
             metadata=info,
@@ -97,4 +106,6 @@ class MaskguardOpenenvEnvironment(Environment):
     @property
     def state(self) -> State:
         """Get the current environment state."""
+        self._state.episode_id = self._env.episode_id
+        self._state.step_count = self._env.step_count
         return self._state

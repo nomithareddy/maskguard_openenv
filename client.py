@@ -34,6 +34,7 @@ class MaskguardOpenenvEnv(
             remaining_entities=obs_data.get("remaining_entities", []),
             policy_mode=obs_data.get("policy_mode", "GDPR"),
             step_count=obs_data.get("step_count", 0),
+            task_name=obs_data.get("task_name", "contact_masking"),
             done=payload.get("done", False),
             reward=payload.get("reward"),
             metadata=payload.get("info", {}),

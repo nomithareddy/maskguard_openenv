@@ -19,6 +19,11 @@ Maskguard Openenv Environment refactors the default scaffold into a policy-aware
 ## Environment Design
 The core environment lives in [env.py](/Users/rnr/Documents/maskguard_openenv/env.py) as `MaskGuardEnv`. The existing scaffold wrapper in [server/maskguard_openenv_environment.py](/Users/rnr/Documents/maskguard_openenv/server/maskguard_openenv_environment.py) preserves the template naming convention while delegating behavior to the RL environment.
 
+Built-in task variants:
+- `contact_masking`
+- `healthcare_note`
+- `finance_record`
+
 ## Observation Space
 Each observation contains:
 - `text`
@@ -71,6 +76,8 @@ The dataset runner in [dataset_runner.py](/Users/rnr/Documents/maskguard_openenv
 
 ## API Usage
 The FastAPI application in [server/app.py](/Users/rnr/Documents/maskguard_openenv/server/app.py) exposes:
+- `GET /health`
+- `GET /state`
 - `POST /reset`
 - `POST /step`
 - `POST /submit`

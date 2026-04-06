@@ -1,17 +1,23 @@
 """
 Inference Script Example
 ===================================
-This local runner exercises the MaskGuardEnv environment and prints the
-required step-by-step reward trace for validation.
+This inference runner uses the OpenAI client to choose actions for MaskGuardEnv
+while preserving the required OpenEnv stdout contract.
 """
 
-from typing import List
+import json
+import os
+from typing import List, Optional
+
+from openai import OpenAI
 
 from env import MaskGuardEnv
 
-TASK_NAME = "maskguard_masking"
-BENCHMARK = "maskguard_openenv"
-MODEL_NAME = "rule-based-masker"
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY") or "local-dev"
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+TASK_NAME = os.getenv("MASKGUARD_TASK", "contact_masking")
+BENCHMARK = os.getenv("MASKGUARD_BENCHMARK", "maskguard_openenv")
 MAX_STEPS = 12
 
 
@@ -19,7 +25,7 @@ def log_start(task: str, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
-def log_step(step: int, action: str, reward: float, done: bool, error: str | None) -> None:
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = error if error else "null"
     print(
         f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}",
@@ -35,7 +41,43 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     )
 
 
-def choose_action(observation: dict) -> dict:
+def build_prompt(observation: dict) -> str:
+    return (
+        "You are controlling a policy-aware masking environment.\n"
+        "Choose exactly one next action as JSON with keys action_type and optional entity_id.\n"
+        "Allowed actions: detect_entity, mask_entity, skip_entity, validate_document, recheck_entities, submit_result.\n"
+        f"Observation: {json.dumps(observation)}\n"
+        "Rules:\n"
+        "- If step_count is 0, choose detect_entity.\n"
+        "- If remaining_entities is non-empty, choose mask_entity for the first remaining entity id.\n"
+        "- If no remaining_entities and masked_entities exists, choose validate_document.\n"
+        "- If validated and compliant, choose submit_result.\n"
+        "Return JSON only."
+    )
+
+
+def choose_action(client: OpenAI, observation: dict) -> dict:
+    prompt = build_prompt(observation)
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You output valid compact JSON only.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+            max_tokens=120,
+        )
+        content = (completion.choices[0].message.content or "").strip()
+        action = json.loads(content)
+        if "action_type" in action:
+            return action
+    except Exception:
+        pass
+
     if observation["step_count"] == 0:
         return {"action_type": "detect_entity"}
     if observation["remaining_entities"]:
@@ -49,39 +91,38 @@ def choose_action(observation: dict) -> dict:
 
 
 def main() -> None:
-    env = MaskGuardEnv(
-        text="My email is [john@gmail.com](mailto:john@gmail.com) and call me at 9876543210.",
-        policy_mode="GDPR",
-        target_entities=["EMAIL", "PHONE"],
-    )
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    env = MaskGuardEnv(task_name=TASK_NAME)
+    observation = env.reset(task_name=TASK_NAME)
 
     rewards: List[float] = []
     steps_taken = 0
-    success = False
     score = 0.0
+    success = False
 
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
-    observation = env.reset(
-        text="My email is [john@gmail.com](mailto:john@gmail.com) and call me at 9876543210.",
-        policy_mode="GDPR",
-        target_entities=["EMAIL", "PHONE"],
-    )
-
     for step in range(1, MAX_STEPS + 1):
-        action = choose_action(observation)
+        action = choose_action(client, observation)
         observation, reward, done, info = env.step(action)
         rewards.append(reward)
         steps_taken = step
-        log_step(step=step, action=action["action_type"], reward=reward, done=done, error=info.get("message"))
+        log_step(
+            step=step,
+            action=json.dumps(action, separators=(",", ":")),
+            reward=reward,
+            done=done,
+            error=info.get("message"),
+        )
 
         if action["action_type"] == "validate_document" and info["validation"]["compliant"]:
-            observation, reward, done, info = env.step({"action_type": "submit_result"})
+            action = {"action_type": "submit_result"}
+            observation, reward, done, info = env.step(action)
             rewards.append(reward)
             steps_taken += 1
             log_step(
                 step=steps_taken,
-                action="submit_result",
+                action=json.dumps(action, separators=(",", ":")),
                 reward=reward,
                 done=done,
                 error=info.get("message"),

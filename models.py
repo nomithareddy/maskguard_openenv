@@ -25,6 +25,8 @@ class MaskguardOpenenvAction(Action):
     entity_value: Optional[str] = Field(default=None, description="Literal entity value to target")
     text: Optional[str] = Field(default=None, description="Optional replacement input text")
     policy_mode: Optional[str] = Field(default=None, description="Optional policy mode override")
+    task_name: Optional[str] = Field(default=None, description="Optional built-in task identifier")
+    target_entities: Optional[List[str]] = Field(default=None, description="Optional required entity list")
 
 
 class MaskguardOpenenvObservation(Observation):
@@ -36,3 +38,4 @@ class MaskguardOpenenvObservation(Observation):
     remaining_entities: List[Dict[str, Any]] = Field(default_factory=list, description="Entities still requiring masking")
     policy_mode: str = Field(default="GDPR", description="Active masking policy mode")
     step_count: int = Field(default=0, description="Current environment step count")
+    task_name: str = Field(default="contact_masking", description="Current task identifier")

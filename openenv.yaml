@@ -34,3 +34,7 @@ evaluation_metrics:
   - recall
   - f1_score
   - compliance_score
+tasks:
+  - contact_masking
+  - healthcare_note
+  - finance_record

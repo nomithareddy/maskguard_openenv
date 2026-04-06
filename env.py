@@ -18,6 +18,25 @@ from rewards import calculate_reward
 
 DEFAULT_TEXT = "My email is john@gmail.com and my phone number is 9876543210."
 MAX_STEPS = 16
+DEFAULT_TASK_NAME = "contact_masking"
+
+TASK_LIBRARY = {
+    "contact_masking": {
+        "text": "My email is [john@gmail.com](mailto:john@gmail.com) and call me at 9876543210.",
+        "policy_mode": "GDPR",
+        "target_entities": ["EMAIL", "PHONE"],
+    },
+    "healthcare_note": {
+        "text": "Patient is John Doe with ID MRN-7788 and email john.doe@hospital.org.",
+        "policy_mode": "HIPAA",
+        "target_entities": ["PERSON", "ID", "EMAIL"],
+    },
+    "finance_record": {
+        "text": "Account number 1234567890 belongs to john@gmail.com and card 4111 1111 1111 1111.",
+        "policy_mode": "FINANCE",
+        "target_entities": ["ACCOUNT", "EMAIL", "CARD"],
+    },
+}
 
 
 class MaskGuardEnv:
@@ -28,24 +47,47 @@ class MaskGuardEnv:
         text: str = DEFAULT_TEXT,
         policy_mode: str = "GDPR",
         target_entities: Optional[List[str]] = None,
+        task_name: str = DEFAULT_TASK_NAME,
     ):
-        self._default_text = text
-        self._default_policy_mode = policy_mode
-        self._default_target_entities = target_entities or []
-        self.reset(text=text, policy_mode=policy_mode, target_entities=target_entities)
+        task_config = self._resolve_task(
+            task_name=task_name,
+            text=text,
+            policy_mode=policy_mode,
+            target_entities=target_entities,
+            prefer_task_defaults=True,
+        )
+        self._default_text = task_config["text"]
+        self._default_policy_mode = task_config["policy_mode"]
+        self._default_target_entities = task_config["target_entities"]
+        self._default_task_name = task_config["task_name"]
+        self.reset(
+            text=task_config["text"],
+            policy_mode=task_config["policy_mode"],
+            target_entities=task_config["target_entities"],
+            task_name=task_config["task_name"],
+        )
 
     def reset(
         self,
         text: Optional[str] = None,
         policy_mode: Optional[str] = None,
         target_entities: Optional[List[str]] = None,
+        task_name: Optional[str] = None,
     ) -> Dict[str, Any]:
+        task_config = self._resolve_task(
+            task_name=task_name or self._default_task_name,
+            text=text if text is not None else self._default_text,
+            policy_mode=policy_mode if policy_mode is not None else self._default_policy_mode,
+            target_entities=target_entities if target_entities is not None else self._default_target_entities,
+            prefer_task_defaults=False,
+        )
         self.episode_id = str(uuid4())
-        self.original_text = self._normalize_text(text or self._default_text)
+        self.task_name = task_config["task_name"]
+        self.original_text = self._normalize_text(task_config["text"])
         self.current_text = self.original_text
-        self.policy_mode = (policy_mode or self._default_policy_mode).upper()
+        self.policy_mode = task_config["policy_mode"].upper()
         self.policy = get_policy_mode(self.policy_mode)
-        self.target_entities = list(target_entities or self._default_target_entities)
+        self.target_entities = list(task_config["target_entities"])
         self.detected_entities: List[Dict[str, Any]] = []
         self.masked_entities: List[Dict[str, Any]] = []
         self.remaining_entities: List[Dict[str, Any]] = []
@@ -157,6 +199,19 @@ class MaskGuardEnv:
             "validation": validation_result,
         }
 
+    def state(self) -> Dict[str, Any]:
+        """Return the current task and episode state."""
+        return {
+            "episode_id": self.episode_id,
+            "task_name": self.task_name,
+            "policy_mode": self.policy_mode,
+            "step_count": self.step_count,
+            "done": self.done,
+            "submitted": self.submitted,
+            "total_reward": self.total_reward,
+            "available_tasks": sorted(TASK_LIBRARY.keys()),
+        }
+
     def _apply_mask(self, action: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
         target_entity = self._select_entity(action)
         if target_entity is None:
@@ -233,6 +288,7 @@ class MaskGuardEnv:
             "remaining_entities": copy.deepcopy(self.remaining_entities),
             "policy_mode": self.policy_mode,
             "step_count": self.step_count,
+            "task_name": self.task_name,
         }
 
     def _detect_entities(self, text: str) -> List[Dict[str, Any]]:
@@ -270,3 +326,35 @@ class MaskGuardEnv:
     @staticmethod
     def _normalize_text(text: str) -> str:
         return re.sub(r"\[(.*?)\]\(mailto:(.*?)\)", r"\1", text)
+
+    def _resolve_task(
+        self,
+        task_name: str,
+        text: str,
+        policy_mode: str,
+        target_entities: Optional[List[str]],
+        prefer_task_defaults: bool,
+    ) -> Dict[str, Any]:
+        task_key = (task_name or DEFAULT_TASK_NAME).lower()
+        if task_key in TASK_LIBRARY:
+            task_config = TASK_LIBRARY[task_key]
+            if prefer_task_defaults:
+                resolved_text = task_config["text"]
+                resolved_policy = task_config["policy_mode"]
+                resolved_targets = list(task_config["target_entities"])
+            else:
+                resolved_text = text
+                resolved_policy = policy_mode
+                resolved_targets = list(target_entities or task_config["target_entities"])
+            return {
+                "task_name": task_key,
+                "text": resolved_text,
+                "policy_mode": resolved_policy,
+                "target_entities": resolved_targets,
+            }
+        return {
+            "task_name": task_key,
+            "text": text,
+            "policy_mode": policy_mode,
+            "target_entities": list(target_entities or []),
+        }
