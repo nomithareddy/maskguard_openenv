@@ -1,27 +1,26 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""OpenEnv action and observation models for MaskGuardEnv."""
 
-"""
-Data models for the Maskguard Openenv Environment.
+from __future__ import annotations
 
-The maskguard_openenv environment is a simple test environment that echoes back messages.
-"""
+from typing import Any, Dict, List, Optional
 
 from openenv.core.env_server.types import Action, Observation
 from pydantic import Field
 
 
 class MaskguardOpenenvAction(Action):
-    """Action for the Maskguard Openenv environment - just a message to echo."""
-
-    message: str = Field(..., description="Message to echo back")
+    action_type: str = Field(..., description="Action name such as detect_entity or mask_entity")
+    entity_id: Optional[str] = Field(default=None, description="Optional entity identifier to act on")
+    entity_type: Optional[str] = Field(default=None, description="Optional entity type filter")
+    entity_value: Optional[str] = Field(default=None, description="Optional raw entity value to act on")
+    text: Optional[str] = Field(default=None, description="Optional new episode text for reset-like flows")
+    policy_mode: Optional[str] = Field(default=None, description="Optional policy mode override")
 
 
 class MaskguardOpenenvObservation(Observation):
-    """Observation from the Maskguard Openenv environment - the echoed message."""
-
-    echoed_message: str = Field(default="", description="The echoed message")
-    message_length: int = Field(default=0, description="Length of the echoed message")
+    text: str = Field(default="", description="Current masked or unmasked working text")
+    detected_entities: List[Dict[str, Any]] = Field(default_factory=list, description="Entities detected from the source text")
+    masked_entities: List[Dict[str, Any]] = Field(default_factory=list, description="Entities already masked")
+    remaining_entities: List[Dict[str, Any]] = Field(default_factory=list, description="Entities still requiring masking")
+    policy_mode: str = Field(default="GDPR", description="Active policy mode")
+    step_count: int = Field(default=0, description="Current environment step count")

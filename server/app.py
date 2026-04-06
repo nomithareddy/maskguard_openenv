@@ -1,84 +1,71 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""FastAPI app exposing the MaskGuardEnv endpoints required for OpenEnv use."""
 
-"""
-FastAPI application for the Maskguard Openenv Environment.
+from __future__ import annotations
 
-This module creates an HTTP server that exposes the MaskguardOpenenvEnvironment
-over HTTP and WebSocket endpoints, compatible with EnvClient.
+from typing import Any, Dict, Optional
 
-Endpoints:
-    - POST /reset: Reset the environment
-    - POST /step: Execute an action
-    - GET /state: Get current environment state
-    - GET /schema: Get action/observation schemas
-    - WS /ws: WebSocket endpoint for persistent sessions
-
-Usage:
-    # Development (with auto-reload):
-    uvicorn server.app:app --reload --host 0.0.0.0 --port 8000
-
-    # Production:
-    uvicorn server.app:app --host 0.0.0.0 --port 8000 --workers 4
-
-    # Or run directly:
-    python -m server.app
-"""
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 try:
-    from openenv.core.env_server.http_server import create_app
-except Exception as e:  # pragma: no cover
-    raise ImportError(
-        "openenv is required for the web interface. Install dependencies with '\n    uv sync\n'"
-    ) from e
+    from ..env import MaskGuardEnv
+except ImportError:
+    from env import MaskGuardEnv
 
-try:
-    from ..models import MaskguardOpenenvAction, MaskguardOpenenvObservation
-    from .maskguard_openenv_environment import MaskguardOpenenvEnvironment
-except ModuleNotFoundError:
-    from models import MaskguardOpenenvAction, MaskguardOpenenvObservation
-    from server.maskguard_openenv_environment import MaskguardOpenenvEnvironment
+app = FastAPI(title="MaskGuardEnv API", version="0.1.0")
+ENV = MaskGuardEnv()
 
 
-# Create the app with web interface and README integration
-app = create_app(
-    MaskguardOpenenvEnvironment,
-    MaskguardOpenenvAction,
-    MaskguardOpenenvObservation,
-    env_name="maskguard_openenv",
-    max_concurrent_envs=1,  # increase this number to allow more concurrent WebSocket sessions
-)
+class ResetRequest(BaseModel):
+    text: Optional[str] = None
+    policy_mode: str = Field(default="GDPR")
+    expected_entities: list[str] = Field(default_factory=list)
 
 
-def main(host: str = "0.0.0.0", port: int = 8000):
-    """
-    Entry point for direct execution via uv run or python -m.
+class StepRequest(BaseModel):
+    action_type: str
+    entity_id: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_value: Optional[str] = None
 
-    This function enables running the server without Docker:
-        uv run --project . server
-        uv run --project . server --port 8001
-        python -m maskguard_openenv.server.app
 
-    Args:
-        host: Host address to bind to (default: "0.0.0.0")
-        port: Port number to listen on (default: 8000)
+@app.get("/")
+def root() -> Dict[str, Any]:
+    return {"environment": "MaskGuardEnv", "status": "ready"}
 
-    For production deployments, consider using uvicorn directly with
-    multiple workers:
-        uvicorn maskguard_openenv.server.app:app --workers 4
-    """
+
+@app.post("/reset")
+def reset_environment(request: ResetRequest) -> Dict[str, Any]:
+    observation = ENV.reset(
+        text=request.text,
+        policy_mode=request.policy_mode,
+        expected_entities=request.expected_entities,
+    )
+    return {"observation": observation, "reward": 0.0, "done": False, "info": {"status": "reset"}}
+
+
+@app.post("/step")
+def step_environment(request: StepRequest) -> Dict[str, Any]:
+    observation, reward, done, info = ENV.step(request.model_dump(exclude_none=True))
+    return {"observation": observation, "reward": reward, "done": done, "info": info}
+
+
+@app.post("/submit")
+def submit_environment() -> Dict[str, Any]:
+    submission = ENV.submit()
+    return {
+        "observation": ENV._observation(),
+        "reward": submission["reward"],
+        "done": submission["accepted"],
+        "info": submission,
+    }
+
+
+def main(host: str = "0.0.0.0", port: int = 8000) -> None:
     import uvicorn
 
     uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    main(port=args.port)
+    main()

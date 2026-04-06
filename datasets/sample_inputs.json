@@ -1,0 +1,12 @@
+{
+  "samples": [
+    {
+      "text": "My email is [john@gmail.com](mailto:john@gmail.com)",
+      "entities": ["EMAIL"]
+    },
+    {
+      "text": "Call me at 9876543210",
+      "entities": ["PHONE"]
+    }
+  ]
+}
