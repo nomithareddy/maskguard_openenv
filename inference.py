@@ -2,7 +2,8 @@
 Inference Script Example
 ===================================
 This inference runner uses the OpenAI client library and a deterministic policy
-for reproducible MaskGuardEnv baseline scores.
+for reproducible MaskGuardEnv baseline scores while preserving the required
+OpenEnv stdout contract.
 """
 
 import json
@@ -28,8 +29,9 @@ def log_start(task: str, env: str, model: str) -> None:
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = error if error else "null"
+    done_val = str(done).lower()
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error_val}",
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
         flush=True,
     )
 
@@ -37,7 +39,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{reward:.2f}" for reward in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -105,12 +107,13 @@ def main() -> None:
 
     for step in range(1, MAX_STEPS + 1):
         action = choose_action(client, observation)
+        action_str = json.dumps(action, separators=(",", ":"))
         observation, reward, done, info = env.step(action)
         rewards.append(reward)
         steps_taken = step
         log_step(
             step=step,
-            action=json.dumps(action, separators=(",", ":")),
+            action=action_str,
             reward=reward,
             done=done,
             error=info.get("message"),
@@ -118,12 +121,13 @@ def main() -> None:
 
         if action["action_type"] == "validate_document" and info["validation"]["compliant"]:
             action = {"action_type": "submit_result"}
+            action_str = json.dumps(action, separators=(",", ":"))
             observation, reward, done, info = env.step(action)
             rewards.append(reward)
             steps_taken += 1
             log_step(
                 step=steps_taken,
-                action=json.dumps(action, separators=(",", ":")),
+                action=action_str,
                 reward=reward,
                 done=done,
                 error=info.get("message"),
@@ -134,7 +138,7 @@ def main() -> None:
             break
 
     validation_result = env.validate()
-    score = validation_result["score"]
+    score = max(0.0, min(1.0, validation_result["score"]))
     success = validation_result["compliant"]
     log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
