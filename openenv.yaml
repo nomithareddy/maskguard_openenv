@@ -12,6 +12,9 @@ observation_space:
   - remaining_entities
   - policy_mode
   - step_count
+  - task_name
+  - difficulty
+  - score
 action_space:
   - detect_entity
   - mask_entity
@@ -20,11 +23,13 @@ action_space:
   - recheck_entities
   - submit_result
 reward_function:
-  correct_mask: 2
-  missed_entity: -2
-  overmask: -1
-  compliance_success: 5
-  invalid_masking: -3
+  range: [0.0, 1.0]
+  partial_progress_signals:
+    correct_mask: positive
+    missed_entity: negative
+    overmask: negative
+    compliance_success: positive
+    invalid_masking: negative
 policy_modes:
   - GDPR
   - HIPAA
@@ -34,7 +39,14 @@ evaluation_metrics:
   - recall
   - f1_score
   - compliance_score
+  - score
 tasks:
-  - contact_masking
-  - healthcare_note
-  - finance_record
+  - name: contact_masking
+    difficulty: easy
+    grader: contact_masking_grader
+  - name: healthcare_note
+    difficulty: medium
+    grader: healthcare_note_grader
+  - name: finance_record
+    difficulty: hard
+    grader: finance_record_grader

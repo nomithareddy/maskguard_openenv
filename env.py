@@ -14,7 +14,7 @@ from uuid import uuid4
 from actions import MaskGuardActionType
 from evaluator import MaskGuardEvaluator
 from policy_modes import get_policy_mode
-from rewards import calculate_reward
+from rewards import calculate_raw_reward, normalize_reward
 
 DEFAULT_TEXT = "My email is john@gmail.com and my phone number is 9876543210."
 MAX_STEPS = 16
@@ -22,19 +22,22 @@ DEFAULT_TASK_NAME = "contact_masking"
 
 TASK_LIBRARY = {
     "contact_masking": {
+        "difficulty": "easy",
         "text": "My email is [john@gmail.com](mailto:john@gmail.com) and call me at 9876543210.",
         "policy_mode": "GDPR",
         "target_entities": ["EMAIL", "PHONE"],
     },
     "healthcare_note": {
-        "text": "Patient is John Doe with ID MRN-7788 and email john.doe@hospital.org.",
+        "difficulty": "medium",
+        "text": "Patient is John Doe with ID MRN-7788, phone 9876543210, and email john.doe@hospital.org.",
         "policy_mode": "HIPAA",
-        "target_entities": ["PERSON", "ID", "EMAIL"],
+        "target_entities": ["PERSON", "ID", "PHONE", "EMAIL"],
     },
     "finance_record": {
-        "text": "Account number 1234567890 belongs to john@gmail.com and card 4111 1111 1111 1111.",
+        "difficulty": "hard",
+        "text": "Account number 1234567890 belongs to john@gmail.com and card 4111 1111 1111 1111. Call 9876543210 for verification.",
         "policy_mode": "FINANCE",
-        "target_entities": ["ACCOUNT", "EMAIL", "CARD"],
+        "target_entities": ["ACCOUNT", "EMAIL", "CARD", "PHONE"],
     },
 }
 
@@ -83,6 +86,7 @@ class MaskGuardEnv:
         )
         self.episode_id = str(uuid4())
         self.task_name = task_config["task_name"]
+        self.difficulty = task_config["difficulty"]
         self.original_text = self._normalize_text(task_config["text"])
         self.current_text = self.original_text
         self.policy_mode = task_config["policy_mode"].upper()
@@ -95,9 +99,11 @@ class MaskGuardEnv:
         self.validation_results: List[Dict[str, Any]] = []
         self.step_count = 0
         self.total_reward = 0.0
+        self.raw_total_reward = 0.0
         self.done = False
         self.submitted = False
         self.invalid_mask_count = 0
+        self._reward_bounds = self._compute_reward_bounds()
         self._refresh_entity_views()
         return self._build_observation()
 
@@ -107,48 +113,64 @@ class MaskGuardEnv:
 
         self.step_count += 1
         action_type = action.get("action_type")
-        reward = 0.0
-        info: Dict[str, Any] = {"action_type": action_type}
+        raw_reward = 0.0
+        info: Dict[str, Any] = {
+            "action_type": action_type,
+            "task_name": self.task_name,
+            "difficulty": self.difficulty,
+        }
 
         if action_type == MaskGuardActionType.DETECT_ENTITY.value:
             self._refresh_entity_views()
+            progress_score = self._progress_score()
             info.update(
                 {
                     "status": "entities_detected",
                     "detected_entities": copy.deepcopy(self.detected_entities),
                     "remaining_entities": copy.deepcopy(self.remaining_entities),
+                    "grader": self._build_grader_result(progress_score),
                 }
             )
         elif action_type == MaskGuardActionType.MASK_ENTITY.value:
-            reward, info = self._apply_mask(action)
+            raw_reward, info = self._apply_mask(action)
         elif action_type == MaskGuardActionType.SKIP_ENTITY.value:
             info = self._skip_entity(action)
+            raw_reward = calculate_raw_reward(missed_entities=1)
+            info["grader"] = self._build_grader_result(self._progress_score())
         elif action_type == MaskGuardActionType.VALIDATE_DOCUMENT.value:
             validation_result = self.validate()
-            reward = validation_result["reward"]
+            raw_reward = validation_result["raw_reward"]
             info = {"status": "validated", "validation": validation_result}
         elif action_type == MaskGuardActionType.RECHECK_ENTITIES.value:
             self._refresh_entity_views()
-            reward = calculate_reward(missed_entities=len(self.remaining_entities)) if self.remaining_entities else 0.0
+            raw_reward = calculate_raw_reward(missed_entities=len(self.remaining_entities)) if self.remaining_entities else 0.0
             info = {
                 "status": "rechecked",
                 "remaining_entities": copy.deepcopy(self.remaining_entities),
+                "grader": self._build_grader_result(self._progress_score()),
             }
         elif action_type == MaskGuardActionType.SUBMIT_RESULT.value:
             submission_result = self.submit()
-            reward = submission_result["reward"]
-            info = {"status": "submitted" if submission_result["accepted"] else "submission_rejected", "submission": submission_result}
+            raw_reward = submission_result["raw_reward"]
+            info = {
+                "status": "submitted" if submission_result["accepted"] else "submission_rejected",
+                "submission": submission_result,
+            }
         else:
             self.invalid_mask_count += 1
-            reward = calculate_reward(invalid_masks=1)
+            raw_reward = calculate_raw_reward(invalid_masks=1)
             info = {"status": "invalid_action", "message": f"Unsupported action: {action_type}"}
 
         if self.step_count >= MAX_STEPS and not self.done:
             self.done = True
-            reward += calculate_reward(missed_entities=max(1, len(self.remaining_entities)))
+            raw_reward += calculate_raw_reward(missed_entities=max(1, len(self.remaining_entities)))
             info["termination_reason"] = "max_steps"
 
-        self.total_reward += reward
+        reward = self._normalize_reward(raw_reward)
+        self.raw_total_reward += raw_reward
+        self.total_reward = self._normalize_reward(self.raw_total_reward)
+        info["raw_reward"] = raw_reward
+        info["normalized_reward"] = reward
         return self._build_observation(), reward, self.done, info
 
     def validate(self) -> Dict[str, Any]:
@@ -169,16 +191,21 @@ class MaskGuardEnv:
             invalid_masks=self.invalid_mask_count,
         )
         compliant = false_negatives == 0 and metrics["compliance_score"] >= 1.0
-        reward = calculate_reward(
+        raw_reward = calculate_raw_reward(
             missed_entities=false_negatives,
             overmasks=false_positives,
             compliance_success=compliant,
         )
+        reward = self._normalize_reward(raw_reward)
+        grader = self._build_grader_result(metrics["score"], remaining_count=false_negatives)
         result = {
             "compliant": compliant,
             "remaining_required_entities": copy.deepcopy(remaining_required_entities),
             "metrics": metrics,
+            "grader": grader,
+            "raw_reward": raw_reward,
             "reward": reward,
+            "score": grader["score"],
         }
         self.validation_results.append(result)
         return result
@@ -186,17 +213,20 @@ class MaskGuardEnv:
     def submit(self) -> Dict[str, Any]:
         validation_result = self.validate()
         accepted = validation_result["compliant"]
-        reward = validation_result["reward"]
+        raw_reward = validation_result["raw_reward"]
         if not accepted:
-            reward += calculate_reward(invalid_masks=1)
+            raw_reward += calculate_raw_reward(invalid_masks=1)
         else:
             self.done = True
             self.submitted = True
+        reward = self._normalize_reward(raw_reward)
         return {
             "accepted": accepted,
+            "raw_reward": raw_reward,
             "reward": reward,
             "final_text": self.current_text if accepted else None,
             "validation": validation_result,
+            "score": validation_result["score"],
         }
 
     def state(self) -> Dict[str, Any]:
@@ -204,23 +234,31 @@ class MaskGuardEnv:
         return {
             "episode_id": self.episode_id,
             "task_name": self.task_name,
+            "difficulty": self.difficulty,
             "policy_mode": self.policy_mode,
             "step_count": self.step_count,
             "done": self.done,
             "submitted": self.submitted,
+            "score": self._progress_score(),
             "total_reward": self.total_reward,
-            "available_tasks": sorted(TASK_LIBRARY.keys()),
+            "available_tasks": {
+                name: {
+                    "difficulty": config["difficulty"],
+                    "policy_mode": config["policy_mode"],
+                }
+                for name, config in TASK_LIBRARY.items()
+            },
         }
 
     def _apply_mask(self, action: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
         target_entity = self._select_entity(action)
         if target_entity is None:
             self.invalid_mask_count += 1
-            return calculate_reward(invalid_masks=1), {"status": "invalid_mask", "message": "No matching entity found."}
+            return calculate_raw_reward(invalid_masks=1), {"status": "invalid_mask", "message": "No matching entity found."}
 
         if target_entity["value"] not in self.current_text:
             self.invalid_mask_count += 1
-            return calculate_reward(invalid_masks=1), {"status": "invalid_mask", "message": "Entity is already masked or missing."}
+            return calculate_raw_reward(invalid_masks=1), {"status": "invalid_mask", "message": "Entity is already masked or missing."}
 
         masked_value = f"[{target_entity['type']}_MASKED]"
         self.current_text = self.current_text.replace(target_entity["value"], masked_value, 1)
@@ -233,10 +271,11 @@ class MaskGuardEnv:
             "status": "entity_masked",
             "masked_entity": masked_entity,
             "remaining_entities": copy.deepcopy(self.remaining_entities),
+            "grader": self._build_grader_result(self._progress_score()),
         }
         if self.remaining_entities:
             info["next_action"] = MaskGuardActionType.RECHECK_ENTITIES.value
-        return calculate_reward(correct_masks=1), info
+        return calculate_raw_reward(correct_masks=1), info
 
     def _skip_entity(self, action: Dict[str, Any]) -> Dict[str, Any]:
         target_entity = self._select_entity(action)
@@ -289,6 +328,8 @@ class MaskGuardEnv:
             "policy_mode": self.policy_mode,
             "step_count": self.step_count,
             "task_name": self.task_name,
+            "difficulty": self.difficulty,
+            "score": self._progress_score(),
         }
 
     def _detect_entities(self, text: str) -> List[Dict[str, Any]]:
@@ -298,7 +339,7 @@ class MaskGuardEnv:
             "CARD": r"(?<!\d)(?:\d[ -]*?){13,16}(?!\d)",
             "ACCOUNT": r"(?i)(?:account|acct)\s*(?:number|no\.?|#)?\s*[:=-]?\s*([A-Z0-9]{6,})",
             "ID": r"(?i)(?:id|mrn|ssn)\s*[:=-]?\s*([A-Z0-9-]{4,})",
-            "PERSON": r"(?:(?:my name is|patient is|contact)\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+            "PERSON": r"(?:(?:my name is|patient is)\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
         }
         entities: List[Dict[str, Any]] = []
         seen = set()
@@ -322,6 +363,28 @@ class MaskGuardEnv:
                 )
         entities.sort(key=lambda entity: entity["start"])
         return entities
+
+    def _compute_reward_bounds(self) -> Tuple[float, float]:
+        entity_count = max(1, len(self.target_entities))
+        max_reward = (entity_count * 2.0) + 5.0
+        min_reward = -((entity_count * 2.0) + 3.0)
+        return min_reward, max_reward
+
+    def _normalize_reward(self, raw_reward: float) -> float:
+        return normalize_reward(raw_reward, self._reward_bounds[0], self._reward_bounds[1])
+
+    def _progress_score(self) -> float:
+        required_total = max(1, len(self._required_entity_types()))
+        masked_required = len([entity for entity in self.masked_entities if entity["type"] in self._required_entity_types()])
+        return max(0.0, min(1.0, masked_required / required_total))
+
+    def _build_grader_result(self, score: float, remaining_count: Optional[int] = None) -> Dict[str, Any]:
+        return MaskGuardEvaluator.grade_task(
+            task_name=self.task_name,
+            difficulty=self.difficulty,
+            metrics={"compliance_score": score},
+            remaining_entities=len(self.remaining_entities) if remaining_count is None else remaining_count,
+        )
 
     @staticmethod
     def _normalize_text(text: str) -> str:
@@ -348,12 +411,14 @@ class MaskGuardEnv:
                 resolved_targets = list(target_entities or task_config["target_entities"])
             return {
                 "task_name": task_key,
+                "difficulty": task_config["difficulty"],
                 "text": resolved_text,
                 "policy_mode": resolved_policy,
                 "target_entities": resolved_targets,
             }
         return {
             "task_name": task_key,
+            "difficulty": "custom",
             "text": text,
             "policy_mode": policy_mode,
             "target_entities": list(target_entities or []),

@@ -1,8 +1,8 @@
 """
 Inference Script Example
 ===================================
-This inference runner uses the OpenAI client to choose actions for MaskGuardEnv
-while preserving the required OpenEnv stdout contract.
+This inference runner uses the OpenAI client library and a deterministic policy
+for reproducible MaskGuardEnv baseline scores.
 """
 
 import json
@@ -19,6 +19,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 TASK_NAME = os.getenv("MASKGUARD_TASK", "contact_masking")
 BENCHMARK = os.getenv("MASKGUARD_BENCHMARK", "maskguard_openenv")
 MAX_STEPS = 12
+USE_LLM = os.getenv("MASKGUARD_USE_LLM", "0") == "1"
 
 
 def log_start(task: str, env: str, model: str) -> None:
@@ -41,32 +42,41 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     )
 
 
+def deterministic_action(observation: dict) -> dict:
+    if observation["step_count"] == 0:
+        return {"action_type": "detect_entity"}
+    if observation["remaining_entities"]:
+        return {
+            "action_type": "mask_entity",
+            "entity_id": observation["remaining_entities"][0]["id"],
+        }
+    if observation["masked_entities"]:
+        return {"action_type": "validate_document"}
+    return {"action_type": "submit_result"}
+
+
 def build_prompt(observation: dict) -> str:
     return (
-        "You are controlling a policy-aware masking environment.\n"
-        "Choose exactly one next action as JSON with keys action_type and optional entity_id.\n"
-        "Allowed actions: detect_entity, mask_entity, skip_entity, validate_document, recheck_entities, submit_result.\n"
-        f"Observation: {json.dumps(observation)}\n"
-        "Rules:\n"
-        "- If step_count is 0, choose detect_entity.\n"
-        "- If remaining_entities is non-empty, choose mask_entity for the first remaining entity id.\n"
-        "- If no remaining_entities and masked_entities exists, choose validate_document.\n"
-        "- If validated and compliant, choose submit_result.\n"
+        "Choose exactly one next masking action as compact JSON.\n"
+        f"Observation: {json.dumps(observation, separators=(",", ":"))}\n"
+        "Allowed action_type values: detect_entity, mask_entity, skip_entity, validate_document, recheck_entities, submit_result.\n"
+        "If remaining_entities exists, choose mask_entity with the first entity id.\n"
+        "If no remaining_entities but masked_entities exists, choose validate_document.\n"
+        "If validation passed, choose submit_result.\n"
         "Return JSON only."
     )
 
 
 def choose_action(client: OpenAI, observation: dict) -> dict:
-    prompt = build_prompt(observation)
+    if not USE_LLM:
+        return deterministic_action(observation)
+
     try:
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {
-                    "role": "system",
-                    "content": "You output valid compact JSON only.",
-                },
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": "Output valid compact JSON only."},
+                {"role": "user", "content": build_prompt(observation)},
             ],
             temperature=0.0,
             max_tokens=120,
@@ -78,16 +88,7 @@ def choose_action(client: OpenAI, observation: dict) -> dict:
     except Exception:
         pass
 
-    if observation["step_count"] == 0:
-        return {"action_type": "detect_entity"}
-    if observation["remaining_entities"]:
-        return {
-            "action_type": "mask_entity",
-            "entity_id": observation["remaining_entities"][0]["id"],
-        }
-    if observation["masked_entities"]:
-        return {"action_type": "validate_document"}
-    return {"action_type": "submit_result"}
+    return deterministic_action(observation)
 
 
 def main() -> None:
@@ -133,7 +134,7 @@ def main() -> None:
             break
 
     validation_result = env.validate()
-    score = validation_result["metrics"]["compliance_score"]
+    score = validation_result["score"]
     success = validation_result["compliant"]
     log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 

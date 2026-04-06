@@ -48,9 +48,28 @@ class MaskGuardEvaluator:
     ) -> Dict[str, float]:
         precision_value = cls.precision(true_positives, false_positives)
         recall_value = cls.recall(true_positives, false_negatives)
+        compliance = cls.compliance_score(masked_required, total_required, invalid_masks)
         return {
             "precision": precision_value,
             "recall": recall_value,
             "f1_score": cls.f1_score(precision_value, recall_value),
-            "compliance_score": cls.compliance_score(masked_required, total_required, invalid_masks),
+            "compliance_score": compliance,
+            "score": compliance,
+        }
+
+    @staticmethod
+    def grade_task(*, task_name: str, difficulty: str, metrics: Dict[str, float], remaining_entities: int) -> Dict[str, float | str]:
+        """Return a task-specific grader result in the required 0.0-1.0 range."""
+
+        difficulty_bonus = {
+            "easy": 0.00,
+            "medium": 0.02,
+            "hard": 0.04,
+        }.get(difficulty, 0.0)
+        base_score = max(0.0, metrics["compliance_score"] - (0.05 * remaining_entities))
+        grader_score = max(0.0, min(1.0, base_score + difficulty_bonus))
+        return {
+            "grader_name": f"{task_name}_grader",
+            "difficulty": difficulty,
+            "score": grader_score,
         }
