@@ -160,6 +160,8 @@ else
   stop_at "Step 2"
 fi
 
+printf "\n"
+log "Docker build completed. Proceeding to OpenEnv validation."
 log "${BOLD}Step 3/3: Running openenv validate${NC} ..."
 
 if ! command -v openenv &>/dev/null; then
@@ -169,14 +171,18 @@ if ! command -v openenv &>/dev/null; then
 fi
 
 VALIDATE_OK=false
-VALIDATE_OUTPUT=$(cd "$REPO_DIR" && openenv validate 2>&1) && VALIDATE_OK=true
+VALIDATE_LOG=$(portable_mktemp "validate-openenv")
+CLEANUP_FILES+=("$VALIDATE_LOG")
+
+if (cd "$REPO_DIR" && openenv validate 2>&1) | tee "$VALIDATE_LOG"; then
+  VALIDATE_OK=true
+fi
 
 if [ "$VALIDATE_OK" = true ]; then
   pass "openenv validate passed"
-  [ -n "$VALIDATE_OUTPUT" ] && log "  $VALIDATE_OUTPUT"
 else
   fail "openenv validate failed"
-  printf "%s\n" "$VALIDATE_OUTPUT"
+  tail -20 "$VALIDATE_LOG"
   stop_at "Step 3"
 fi
 
