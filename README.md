@@ -102,10 +102,50 @@ The FastAPI application in [server/app.py](/Users/rnr/Documents/maskguard_openen
 - `POST /step`
 - `POST /submit`
 
-Example:
+### Minimal Inputs
+For normal testing, you only need a very small subset of fields.
+
+Use `POST /reset` with:
+- `task_name`: `contact_masking`, `healthcare_note`, or `finance_record`
+- `policy_mode`: `GDPR`, `HIPAA`, or `FINANCE`
+
+Use `POST /step` with:
+- `detect_entity`: only `action_type`
+- `mask_entity`: `action_type` and `entity_id`
+- `validate_document`: only `action_type`
+- `submit_result`: only `action_type`
+
+These fields are optional advanced fields and can usually be left empty:
+- `entity_type`
+- `entity_value`
+- `text`
+- `target_entities`
+
+### Copy-Paste Examples
+Reset an easy task:
 ```bash
 uvicorn server.app:app --reload
-curl -X POST http://localhost:8000/reset -H 'Content-Type: application/json' -d '{"task_name":"contact_masking","policy_mode":"GDPR","target_entities":["EMAIL","PHONE"]}'
+curl -X POST http://localhost:8000/reset -H 'Content-Type: application/json' -d '{"task_name":"contact_masking","policy_mode":"GDPR"}'
+```
+
+Detect entities:
+```bash
+curl -X POST http://localhost:8000/step -H 'Content-Type: application/json' -d '{"action_type":"detect_entity"}'
+```
+
+Mask one entity:
+```bash
+curl -X POST http://localhost:8000/step -H 'Content-Type: application/json' -d '{"action_type":"mask_entity","entity_id":"EMAIL-12-0"}'
+```
+
+Validate:
+```bash
+curl -X POST http://localhost:8000/step -H 'Content-Type: application/json' -d '{"action_type":"validate_document"}'
+```
+
+Submit:
+```bash
+curl -X POST http://localhost:8000/submit -H 'Content-Type: application/json' -d '{}'
 ```
 
 ## Local Execution Steps

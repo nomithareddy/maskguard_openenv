@@ -19,14 +19,44 @@ from pydantic import Field
 class MaskguardOpenenvAction(Action):
     """Action for the Maskguard Openenv environment."""
 
-    action_type: str = Field(..., description="Action name such as detect_entity or mask_entity")
-    entity_id: Optional[str] = Field(default=None, description="Unique entity identifier")
-    entity_type: Optional[str] = Field(default=None, description="Entity type to target")
-    entity_value: Optional[str] = Field(default=None, description="Literal entity value to target")
-    text: Optional[str] = Field(default=None, description="Optional replacement input text")
-    policy_mode: Optional[str] = Field(default=None, description="Optional policy mode override")
-    task_name: Optional[str] = Field(default=None, description="Optional built-in task identifier")
-    target_entities: Optional[List[str]] = Field(default=None, description="Optional required entity list")
+    action_type: str = Field(
+        ...,
+        description=(
+            "Action name. Use one of: detect_entity, mask_entity, skip_entity, "
+            "validate_document, recheck_entities, submit_result."
+        ),
+    )
+    entity_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Entity identifier from observation.detected_entities or remaining_entities. "
+            "Only needed for mask_entity and skip_entity."
+        ),
+    )
+    entity_type: Optional[str] = Field(
+        default=None,
+        description="Optional advanced field. Leave empty for normal testing.",
+    )
+    entity_value: Optional[str] = Field(
+        default=None,
+        description="Optional advanced field. Leave empty for normal testing.",
+    )
+    text: Optional[str] = Field(
+        default=None,
+        description="Optional custom input text. Usually provide text at /reset instead.",
+    )
+    policy_mode: Optional[str] = Field(
+        default=None,
+        description="Optional policy override. Usually set once at /reset: GDPR, HIPAA, or FINANCE.",
+    )
+    task_name: Optional[str] = Field(
+        default=None,
+        description="Optional task identifier. Usually set once at /reset: contact_masking, healthcare_note, or finance_record.",
+    )
+    target_entities: Optional[List[str]] = Field(
+        default=None,
+        description="Optional advanced field for custom target entity lists. Leave empty for built-in task testing.",
+    )
 
 
 class MaskguardOpenenvObservation(Observation):
