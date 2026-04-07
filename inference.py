@@ -59,9 +59,10 @@ def deterministic_action(observation: dict) -> dict:
 
 
 def build_prompt(observation: dict) -> str:
+    observation_json = json.dumps(observation, separators=(",", ":"))
     return (
         "Choose exactly one next masking action as compact JSON.\n"
-        f"Observation: {json.dumps(observation, separators=(",", ":"))}\n"
+        f"Observation: {observation_json}\n"
         "Allowed action_type values: detect_entity, mask_entity, skip_entity, validate_document, recheck_entities, submit_result.\n"
         "If remaining_entities exists, choose mask_entity with the first entity id.\n"
         "If no remaining_entities but masked_entities exists, choose validate_document.\n"
