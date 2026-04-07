@@ -38,6 +38,14 @@ Each observation contains:
 - `difficulty`
 - `score`
 
+Each step returns the core observation fields requested for the environment:
+- `text`
+- `detected_entities`
+- `masked_entities`
+- `remaining_entities`
+- `policy_mode`
+- `step_count`
+
 ## Action Space
 Supported actions are defined in [actions.py](/Users/rnr/Documents/maskguard_openenv/actions.py):
 - `detect_entity`
@@ -68,6 +76,8 @@ Policy definitions are implemented in [policy_modes.py](/Users/rnr/Documents/mas
 - `FINANCE`
 
 ## Agent Interaction Loop
+`observe -> detect -> mask -> validate -> recheck -> submit`
+
 1. Reset the environment with a built-in task or custom text.
 2. Run `detect_entity` to identify candidate PII.
 3. Use `mask_entity` to replace one entity at a time.
@@ -85,19 +95,30 @@ Evaluation is implemented in [evaluator.py](/Users/rnr/Documents/maskguard_opene
 - compliance score
 - normalized score
 
+We evaluate agent performance using:
+- Precision
+- Recall
+- F1 Score
+- Compliance Score
+
 ## Dataset Runner
 The dataset runner in [dataset_runner.py](/Users/rnr/Documents/maskguard_openenv/dataset_runner.py) loads [datasets/sample_inputs.json](/Users/rnr/Documents/maskguard_openenv/datasets/sample_inputs.json), evaluates the sample dataset, and also runs the built-in `easy`, `medium`, and `hard` tasks with agent graders.
+
+Sample dataset:
+- [datasets/sample_inputs.json](/Users/rnr/Documents/maskguard_openenv/datasets/sample_inputs.json)
+
+Used for environment evaluation.
 
 ## Baseline Scores
 Validated baseline results from the current deterministic inference and dataset pipeline:
 - `python inference.py`
   - final score: `1.000`
-  - rewards: `0.44, 0.56, 0.56, 0.75, 0.75`
+  - rewards: `0.53, 0.63, 0.63, 0.79, 0.79`
 - `python dataset_runner.py`
   - precision: `1.000`
   - recall: `1.000`
   - F1 score: `1.000`
-  - average reward: `3.083`
+  - average reward: `3.357`
   - average task score: `1.000`
 
 ## API Usage
