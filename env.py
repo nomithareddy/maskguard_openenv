@@ -35,7 +35,12 @@ TASK_LIBRARY = {
     },
     "finance_record": {
         "difficulty": "hard",
-        "text": "Account number 1234567890 belongs to john@gmail.com and card 4111 1111 1111 1111. Call 9876543210 for verification.",
+        "text": (
+            "Finance escalation: account number 1234567890 belongs to john@gmail.com, "
+            "backup contact is fin.ops@corp.com, primary card 4111 1111 1111 1111, "
+            "secondary card 5555 4444 3333 2222, and callback line is 9876543210. "
+            "Reference ticket INV-2026-APR is public and should remain visible."
+        ),
         "policy_mode": "FINANCE",
         "target_entities": ["ACCOUNT", "EMAIL", "CARD", "PHONE"],
     },
@@ -190,12 +195,18 @@ class MaskGuardEnv:
             total_required=true_positives + false_negatives,
             invalid_masks=self.invalid_mask_count,
         )
+        exploit_penalty = self._exploit_penalty()
+        if exploit_penalty:
+            metrics["compliance_score"] = max(0.0, metrics["compliance_score"] - exploit_penalty)
+            metrics["score"] = metrics["compliance_score"]
         compliant = false_negatives == 0 and metrics["compliance_score"] >= 1.0
         raw_reward = calculate_raw_reward(
             missed_entities=false_negatives,
             overmasks=false_positives,
             compliance_success=compliant,
         )
+        if exploit_penalty:
+            raw_reward += calculate_raw_reward(overmasks=1)
         reward = self._normalize_reward(raw_reward)
         grader = self._build_grader_result(metrics["score"], remaining_count=false_negatives)
         result = {
@@ -206,6 +217,7 @@ class MaskGuardEnv:
             "raw_reward": raw_reward,
             "reward": reward,
             "score": grader["score"],
+            "exploit_penalty": exploit_penalty,
         }
         self.validation_results.append(result)
         return result
@@ -367,7 +379,7 @@ class MaskGuardEnv:
     def _compute_reward_bounds(self) -> Tuple[float, float]:
         entity_count = max(1, len(self.target_entities))
         max_reward = (entity_count * 2.0) + 5.0
-        min_reward = -((entity_count * 2.0) + 3.0)
+        min_reward = -((entity_count * 3.0) + 4.0)
         return min_reward, max_reward
 
     def _normalize_reward(self, raw_reward: float) -> float:
@@ -385,6 +397,22 @@ class MaskGuardEnv:
             metrics={"compliance_score": score},
             remaining_entities=len(self.remaining_entities) if remaining_count is None else remaining_count,
         )
+
+    def _exploit_penalty(self) -> float:
+        """
+        Penalize exploit-like behavior where repeated placeholder insertion or
+        blanket masking patterns could score well without faithful compliance.
+        """
+        placeholder_count = self.current_text.count("_MASKED")
+        expected_mask_count = len(self.masked_entities)
+        excessive_placeholders = max(0, placeholder_count - expected_mask_count)
+        if self.task_name == "finance_record":
+            public_reference_present = "INV-2026-APR" in self.current_text
+            if not public_reference_present:
+                return 0.20
+            if excessive_placeholders > 0:
+                return min(0.25, 0.05 * excessive_placeholders)
+        return 0.0
 
     @staticmethod
     def _normalize_text(text: str) -> str:

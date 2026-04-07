@@ -63,10 +63,15 @@ class MaskGuardEvaluator:
 
         difficulty_bonus = {
             "easy": 0.00,
-            "medium": 0.02,
-            "hard": 0.04,
+            "medium": 0.01,
+            "hard": 0.00,
         }.get(difficulty, 0.0)
-        base_score = max(0.0, metrics["compliance_score"] - (0.05 * remaining_entities))
+        remaining_penalty = {
+            "easy": 0.05,
+            "medium": 0.08,
+            "hard": 0.12,
+        }.get(difficulty, 0.05)
+        base_score = max(0.0, metrics["compliance_score"] - (remaining_penalty * remaining_entities))
         grader_score = max(0.0, min(1.0, base_score + difficulty_bonus))
         return {
             "grader_name": f"{task_name}_grader",

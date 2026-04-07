@@ -24,7 +24,7 @@ The core environment lives in [env.py](/Users/rnr/Documents/maskguard_openenv/en
 Built-in task variants with agent graders:
 - `contact_masking`: `easy`, graded by `contact_masking_grader`
 - `healthcare_note`: `medium`, graded by `healthcare_note_grader`
-- `finance_record`: `hard`, graded by `finance_record_grader`
+- `finance_record`: `hard`, graded by `finance_record_grader`, with multi-entity financial records, distractor references, and exploit-aware validation
 
 ## Observation Space
 Each observation contains:
@@ -68,6 +68,8 @@ Policy definitions are implemented in [policy_modes.py](/Users/rnr/Documents/mas
 4. Use `recheck_entities` to inspect what remains.
 5. Run `validate_document` to score compliance and grader output.
 6. Run `submit_result` only when validation succeeds.
+
+The hard finance task intentionally includes benign reference text that must remain visible, multiple financial identifiers, and stronger penalties for incomplete masking so graders can distinguish careful agents from brittle ones.
 
 ## Evaluation Metrics
 Evaluation is implemented in [evaluator.py](/Users/rnr/Documents/maskguard_openenv/evaluator.py) and returns:
