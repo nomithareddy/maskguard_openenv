@@ -14,15 +14,15 @@ from openai import OpenAI
 
 from env import MaskGuardEnv
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-API_KEY = os.getenv("API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
-LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 TASK_NAME = os.getenv("MASKGUARD_TASK", "contact_masking")
 BENCHMARK = os.getenv("MASKGUARD_BENCHMARK", "maskguard_openenv")
 MAX_STEPS = 12
-USE_LLM = os.getenv("MASKGUARD_USE_LLM", "1") == "1"
+USE_LLM = os.getenv("MASKGUARD_USE_LLM", "0") == "1"
+USE_TORCH_POLICY = os.getenv("MASKGUARD_USE_TORCH", "0") == "1"
+TORCH_DEVICE = os.getenv("MASKGUARD_TORCH_DEVICE", "cpu")
 
 
 def log_start(task: str, env: str, model: str) -> None:
@@ -41,7 +41,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{reward:.2f}" for reward in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 
@@ -97,55 +97,91 @@ def choose_action(client: Optional[OpenAI], observation: dict) -> dict:
 
 
 def main() -> None:
-    client: Optional[OpenAI] = None
-    if USE_LLM:
-        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or HF_TOKEN or "missing-api-key")
+    rewards: List[float] = []
+    steps_taken = 0
+    success = False
+    last_error: Optional[str] = None
+
     env = MaskGuardEnv(task_name=TASK_NAME)
     observation = env.reset(task_name=TASK_NAME)
 
-    rewards: List[float] = []
-    steps_taken = 0
-    score = 0.0
-    success = False
-
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
-    for step in range(1, MAX_STEPS + 1):
-        action = choose_action(client, observation)
-        action_str = json.dumps(action, separators=(",", ":"))
-        observation, reward, done, info = env.step(action)
-        rewards.append(reward)
-        steps_taken = step
-        log_step(
-            step=step,
-            action=action_str,
-            reward=reward,
-            done=done,
-            error=info.get("message"),
-        )
+    try:
+        if HF_TOKEN is None:
+            raise ValueError("HF_TOKEN environment variable is required")
 
-        if action["action_type"] == "validate_document" and info["validation"]["compliant"]:
-            action = {"action_type": "submit_result"}
+        torch_policy = None
+        if USE_TORCH_POLICY:
+            try:
+                from torch_policy import try_create_torch_policy
+
+                torch_policy = try_create_torch_policy(device=TORCH_DEVICE)
+            except Exception:
+                torch_policy = None
+
+        client: Optional[OpenAI] = None
+        if USE_LLM:
+            client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+
+        for step in range(1, MAX_STEPS + 1):
+            if torch_policy is not None:
+                action = torch_policy.act(observation)
+            else:
+                action = choose_action(client, observation)
             action_str = json.dumps(action, separators=(",", ":"))
+
             observation, reward, done, info = env.step(action)
             rewards.append(reward)
-            steps_taken += 1
+            steps_taken = step
+
+            last_error = (
+                info.get("last_action_error")
+                or info.get("error")
+                or None
+            )
+
             log_step(
-                step=steps_taken,
+                step=step,
                 action=action_str,
                 reward=reward,
                 done=done,
-                error=info.get("message"),
+                error=last_error,
             )
-            break
 
-        if done:
-            break
+            if action.get("action_type") == "validate_document":
+                validation = info.get("validation") or {}
+                if validation.get("compliant"):
+                    action = {"action_type": "submit_result"}
+                    action_str = json.dumps(action, separators=(",", ":"))
+                    observation, reward, done, info = env.step(action)
+                    rewards.append(reward)
+                    steps_taken += 1
+                    last_error = (
+                        info.get("last_action_error")
+                        or info.get("error")
+                        or None
+                    )
+                    log_step(
+                        step=steps_taken,
+                        action=action_str,
+                        reward=reward,
+                        done=done,
+                        error=last_error,
+                    )
+                    break
 
-    validation_result = env.validate()
-    score = max(0.0, min(1.0, validation_result["score"]))
-    success = validation_result["compliant"]
-    log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+            if done:
+                break
+
+        validation_result = env.validate()
+        success = bool(validation_result.get("compliant"))
+    except Exception as exc:
+        last_error = str(exc)
+        success = False
+    finally:
+        # The OpenEnv validator expects [END] to always be emitted.
+        log_end(success=success, steps=steps_taken, score=0.0, rewards=rewards)
 
 
 if __name__ == "__main__":

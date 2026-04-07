@@ -44,9 +44,15 @@ tasks:
   - name: contact_masking
     difficulty: easy
     grader: contact_masking_grader
+    graders:
+      - contact_masking_grader
   - name: healthcare_note
     difficulty: medium
     grader: healthcare_note_grader
+    graders:
+      - healthcare_note_grader
   - name: finance_record
     difficulty: hard
     grader: finance_record_grader
+    graders:
+      - finance_record_grader

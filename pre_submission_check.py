@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,8 +19,14 @@ from env import MaskGuardEnv, TASK_LIBRARY
 ROOT = Path(__file__).parent
 
 
-def run_command(command: list[str]) -> tuple[int, str, str]:
-    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+def run_command(command: list[str], *, env: dict | None = None) -> tuple[int, str, str]:
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
     return result.returncode, result.stdout, result.stderr
 
 
@@ -45,7 +52,11 @@ def check_tasks() -> None:
 
 
 def check_inference() -> None:
-    code, stdout, stderr = run_command([sys.executable, "inference.py"])
+    env = dict(os.environ)
+    # The hackathon guidelines require HF_TOKEN to be present; keep local checks offline.
+    env.setdefault("HF_TOKEN", "local-dummy-token")
+    env.setdefault("MASKGUARD_USE_LLM", "0")
+    code, stdout, stderr = run_command([sys.executable, "inference.py"], env=env)
     assert code == 0, f"inference.py failed: {stderr}"
     lines = [line for line in stdout.strip().splitlines() if line]
     assert lines[0].startswith("[START] "), "missing [START]"

@@ -109,6 +109,22 @@ Sample dataset:
 
 Used for environment evaluation.
 
+## PyTorch (Hackathon Relevance)
+This repository ships the **environment + graders** and includes an agent entrypoint in `inference.py`.
+
+- **Where PyTorch fits**: `inference.py` supports an **optional PyTorch policy** (see `torch_policy.py`) that follows the standard RL shape (policy chooses actions from observations). This is the intended hook for training/inference with the PyTorch ecosystem (TorchRL / PPO / custom policies).
+- **How to enable (optional)**: set `MASKGUARD_USE_TORCH=1` (and optionally `MASKGUARD_TORCH_DEVICE=cpu`).
+- **Validator safety**: if `torch` is not installed, the run falls back to the deterministic baseline policy (no extra dependency required).
+
+## Dataset Variety & Scaling
+The bundled `datasets/sample_inputs.json` is intentionally tiny so the Space boots quickly and the evaluation pipeline is deterministic.
+
+For broader generalization tests, the same `dataset_runner.py` pattern can be extended to larger corpora, for example:
+- Hugging Face datasets with PII-like fields (support tickets, emails, clinical notes)
+- Kaggle datasets containing structured identifiers (account numbers, IDs) or synthetic PII
+
+The environment supports injecting arbitrary text + target entity types via `reset(text=..., target_entities=...)`, so scaling the dataset is a data-loading concern rather than an environment rewrite.
+
 ## Baseline Scores
 Validated baseline results from the current deterministic inference and dataset pipeline:
 - `python inference.py`
