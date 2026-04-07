@@ -55,6 +55,12 @@ Reward shaping is implemented in [rewards.py](/Users/rnr/Documents/maskguard_ope
 - compliance success: positive signal
 - invalid masking: negative signal
 
+Explicit raw reward formula:
+```text
+raw_reward = 2 * correct_masks - 2 * missed_entities - 1 * overmasks - 3 * invalid_masks + 5 * compliance_success
+normalized_reward = clamp(raw_reward, 0.0, 1.0)
+```
+
 ## Policy Modes
 Policy definitions are implemented in [policy_modes.py](/Users/rnr/Documents/maskguard_openenv/policy_modes.py):
 - `GDPR`
