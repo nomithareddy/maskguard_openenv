@@ -16,12 +16,13 @@ from env import MaskGuardEnv
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+API_KEY = os.getenv("API_KEY")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 TASK_NAME = os.getenv("MASKGUARD_TASK", "contact_masking")
 BENCHMARK = os.getenv("MASKGUARD_BENCHMARK", "maskguard_openenv")
 MAX_STEPS = 12
-USE_LLM = os.getenv("MASKGUARD_USE_LLM", "0") == "1"
+USE_LLM = os.getenv("MASKGUARD_USE_LLM", "1") == "1"
 
 
 def log_start(task: str, env: str, model: str) -> None:
@@ -98,7 +99,7 @@ def choose_action(client: Optional[OpenAI], observation: dict) -> dict:
 def main() -> None:
     client: Optional[OpenAI] = None
     if USE_LLM:
-        client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "missing-hf-token")
+        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or HF_TOKEN or "missing-api-key")
     env = MaskGuardEnv(task_name=TASK_NAME)
     observation = env.reset(task_name=TASK_NAME)
 
