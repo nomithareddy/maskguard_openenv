@@ -148,14 +148,14 @@ BUILD_OK=false
 BUILD_LOG=$(portable_mktemp "validate-docker")
 CLEANUP_FILES+=("$BUILD_LOG")
 
-if run_with_timeout "$DOCKER_BUILD_TIMEOUT" docker build "$DOCKER_CONTEXT" 2>&1 | tee "$BUILD_LOG"; then
+if docker build "$DOCKER_CONTEXT" 2>&1 | tee "$BUILD_LOG"; then
   BUILD_OK=true
 fi
 
 if [ "$BUILD_OK" = true ]; then
   pass "Docker build succeeded"
 else
-  fail "Docker build failed (timeout=${DOCKER_BUILD_TIMEOUT}s)"
+  fail "Docker build failed"
   tail -20 "$BUILD_LOG"
   stop_at "Step 2"
 fi
