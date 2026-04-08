@@ -59,9 +59,9 @@ class MaskGuardEvaluator:
         clamped_score = cls.clamp_grader_score(compliance)
 
         return {
-            "precision": precision_value,
-            "recall": recall_value,
-            "f1_score": cls.f1_score(precision_value, recall_value),
+            "precision": cls.clamp_grader_score(precision_value),
+            "recall": cls.clamp_grader_score(recall_value),
+            "f1_score": cls.clamp_grader_score(cls.f1_score(precision_value, recall_value)),
             "compliance_score": clamped_score,
             "score": clamped_score,
         }

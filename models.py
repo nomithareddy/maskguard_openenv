@@ -69,3 +69,6 @@ class MaskguardOpenenvObservation(Observation):
     policy_mode: str = Field(default="GDPR", description="Active masking policy mode")
     step_count: int = Field(default=0, description="Current environment step count")
     task_name: str = Field(default="contact_masking", description="Current task identifier")
+    difficulty: str = Field(default="easy", description="Task difficulty level")
+    score: float = Field(default=0.0, description="Current task progress score")
+    grader: Dict[str, Any] = Field(default_factory=dict, description="Structured grading information")
