@@ -35,7 +35,7 @@ class MaskguardOpenenvEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._env = MaskGuardEnv()
 
-    def reset(self) -> MaskguardOpenenvObservation:
+    def reset(self, seed: "int | None" = None, episode_id: "str | None" = None, **kwargs) -> MaskguardOpenenvObservation:  # type: ignore[override]
         """Reset the environment and return the initial observation."""
         observation = self._env.reset()
         self._state = State(episode_id=self._env.episode_id, step_count=0)
