@@ -309,7 +309,7 @@ class MaskGuardEnv:
             "step_count": self.step_count,
             "task_name": self.task_name,
             "difficulty": self.difficulty,
-            "score": score,
+            "score": MaskGuardEvaluator.clamp_grader_score(score),
             "grader": self._build_grader_result(score),  # REQUIRED
         }
 

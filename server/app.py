@@ -242,6 +242,11 @@ def grade_finance_record() -> Dict[str, Any]:
     return _run_grader_for_task("finance_record")
 
 
+@app.post("/grader/education_record_grader")
+def grade_education_record() -> Dict[str, Any]:
+    return _run_grader_for_task("education_record")
+
+
 # --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #

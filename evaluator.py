@@ -56,12 +56,14 @@ class MaskGuardEvaluator:
             invalid_masks,
         )
 
+        clamped_score = cls.clamp_grader_score(compliance)
+
         return {
             "precision": precision_value,
             "recall": recall_value,
             "f1_score": cls.f1_score(precision_value, recall_value),
-            "compliance_score": compliance,
-            "score": compliance,
+            "compliance_score": clamped_score,
+            "score": clamped_score,
         }
 
     @classmethod
