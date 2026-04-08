@@ -31,11 +31,9 @@ try:
     from models import MaskguardOpenenvAction, MaskguardOpenenvObservation
     from server.maskguard_openenv_environment import MaskguardOpenenvEnvironment
 except ImportError:
-    # Fallback for alternative execution contexts
-    import models
-    from maskguard_openenv_environment import MaskguardOpenenvEnvironment
-    MaskguardOpenenvAction = models.MaskguardOpenenvAction
-    MaskguardOpenenvObservation = models.MaskguardOpenenvObservation
+    # Fallback: relative import when running as a package
+    from .maskguard_openenv_environment import MaskguardOpenenvEnvironment
+    from ..models import MaskguardOpenenvAction, MaskguardOpenenvObservation
 
 app = create_app(
     MaskguardOpenenvEnvironment,
