@@ -31,7 +31,7 @@ def run_command(command: list[str], *, env: dict | None = None) -> tuple[int, st
 
 
 def check_tasks() -> None:
-    required_tasks = ["contact_masking", "healthcare_note", "finance_record"]
+    required_tasks = ["contact_masking", "healthcare_note", "finance_record", "education_record"]
     for task_name in required_tasks:
         env = MaskGuardEnv(task_name=task_name)
         env.reset(task_name=task_name)

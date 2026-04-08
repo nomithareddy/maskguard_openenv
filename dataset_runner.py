@@ -57,7 +57,7 @@ def run_sample(sample):
 def run_builtin_tasks():
     """Run the easy, medium, and hard built-in tasks."""
     results = []
-    for task_name in ["contact_masking", "healthcare_note", "finance_record"]:
+    for task_name in ["contact_masking", "healthcare_note", "finance_record", "education_record"]:
         env = MaskGuardEnv(task_name=task_name)
         env.reset(task_name=task_name)
         validation_result, total_reward = run_episode(env)

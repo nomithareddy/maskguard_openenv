@@ -56,3 +56,8 @@ tasks:
     grader: finance_record_grader
     graders:
       - finance_record_grader
+  - name: education_record
+    difficulty: medium
+    grader: education_record_grader
+    graders:
+      - education_record_grader

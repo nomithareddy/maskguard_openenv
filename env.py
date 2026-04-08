@@ -43,6 +43,12 @@ TASK_LIBRARY = {
         "policy_mode": "FINANCE",
         "target_entities": ["ACCOUNT", "EMAIL", "CARD", "PHONE"],
     },
+    "education_record": {
+        "difficulty": "medium",
+        "text": "Student Alice Smith (ID EDU-12345) can be reached at alice@university.edu or 9876543210.",
+        "policy_mode": "GDPR",
+        "target_entities": ["PERSON", "ID", "EMAIL", "PHONE"],
+    },
 }
 
 
@@ -248,7 +254,7 @@ class MaskGuardEnv:
             "CARD": r"(?:\d[ -]*?){13,16}",
             "ACCOUNT": r"\b\d{8,12}\b",
             "ID": r"[A-Z]{2,}-\d+",
-            "PERSON": r"(?:Patient is|my name is)\s+([A-Z][a-z]+)",
+            "PERSON": r"\b[A-Z][a-z]+ [A-Z][a-z]+\b",
         }
 
         entities = []
