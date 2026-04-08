@@ -27,6 +27,7 @@ dependencies = [
     # "openspiel>=1.0.0",
     # "smolagents>=1.22.0,<2",
     "openai>=1.30.0",
+    "types-PyYAML>=6.0.12.12",
 ]
 
 [project.optional-dependencies]
