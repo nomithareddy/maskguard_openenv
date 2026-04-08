@@ -55,6 +55,7 @@ def check_inference() -> None:
     env = dict(os.environ)
     # The hackathon guidelines require HF_TOKEN to be present; keep local checks offline.
     env.setdefault("HF_TOKEN", "local-dummy-token")
+    env.setdefault("API_KEY", "local-dummy-token")
     env.setdefault("MASKGUARD_USE_LLM", "0")
     code, stdout, stderr = run_command([sys.executable, "inference.py"], env=env)
     assert code == 0, f"inference.py failed: {stderr}"
