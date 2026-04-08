@@ -14,7 +14,7 @@ from openai import OpenAI
 
 from env import MaskGuardEnv
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
 API_KEY = os.getenv("API_KEY") or HF_TOKEN
