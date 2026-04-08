@@ -71,6 +71,8 @@ def run_episode(env: MaskGuardEnv, task_name: str):
     log_step(step=step_count, action=json.dumps(action, separators=(",", ":")), reward=reward, done=done)
     
     validation_info = info.get("validation", {})
+    if not isinstance(validation_info, dict):
+        validation_info = {}
     
     # Step Submit
     action = {"action_type": "submit_result"}
