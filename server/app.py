@@ -98,12 +98,19 @@ def get_metadata() -> Dict[str, Any]:
     Overridden metadata endpoint to include the 'tasks' list.
     Some validators use this for task/grader discovery.
     """
-    tasks = list_tasks()["tasks"]
+    tasks_info = list_tasks()
+    tasks = tasks_info["tasks"]
+    # Graders list for explicit discovery
+    graders = [t["grader"] for t in tasks if "grader" in t]
+    
     return {
         "name": "maskguard_openenv",
         "description": "Policy-aware OpenEnv PII masking environment.",
         "version": "1.0.0",
-        "tasks": tasks  # ← CRITICAL: Discoverable tasks
+        "tasks": tasks,
+        "graders": graders,      # ← EXPLICIT: Grader discovery
+        "observation_space": ["text", "detected_entities", "masked_entities", "remaining_entities", "policy_mode", "step_count", "task_name", "difficulty", "score", "grader"],
+        "action_space": ["detect_entity", "mask_entity", "skip_entity", "validate_document", "recheck_entities", "submit_result"]
     }
 
 
@@ -120,7 +127,7 @@ def list_tasks() -> Dict[str, Any]:
             config = yaml.safe_load(f)
         tasks = config.get("tasks", [])
     except Exception:
-        # Fallback hardcoded list so the validator never sees an empty response
+        # Robust fallback
         tasks = [
             {"id": "contact_masking",    "name": "contact_masking", "difficulty": "easy",   "grader": "contact_masking_grader"},
             {"id": "healthcare_note",    "name": "healthcare_note", "difficulty": "medium", "grader": "healthcare_note_grader"},
@@ -129,6 +136,12 @@ def list_tasks() -> Dict[str, Any]:
             {"id": "legal_disclosure",   "name": "legal_disclosure", "difficulty": "hard",   "grader": "legal_disclosure_grader"},
             {"id": "hr_portal",          "name": "hr_portal",        "difficulty": "medium", "grader": "hr_portal_grader"},
         ]
+    
+    # Ensure every task has a 'grader' field that is discoverable
+    for task in tasks:
+        if "grader" not in task:
+            task["grader"] = f"{task['id']}_grader"
+            
     return {"tasks": tasks}
 
 
@@ -252,7 +265,8 @@ def _run_grader_for_task(task_name: str) -> Dict[str, Any]:
             "reward": reward,
             "done": done,
             "grader": grader,
-            "score": score,  # ← TOP LEVEL
+            "score": score,             # ← TOP LEVEL (REQUIRED)
+            "grader_name": f"{task_name}_grader", # ← OPTIONAL BUT GOOD
             "status": "success",
         }
     except Exception as e:
@@ -262,6 +276,7 @@ def _run_grader_for_task(task_name: str) -> Dict[str, Any]:
             "done": False,
             "grader": {"score": 0.01, "grader_name": f"{task_name}_grader", "error": str(e)},
             "score": 0.01,
+            "grader_name": f"{task_name}_grader",
             "status": "error",
         }
 

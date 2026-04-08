@@ -45,24 +45,24 @@ tasks:
   - id: contact_masking
     name: contact_masking
     difficulty: easy
-    grader: contact_masking_grader
+    grader: /grader/contact_masking_grader
   - id: healthcare_note
     name: healthcare_note
     difficulty: medium
-    grader: healthcare_note_grader
+    grader: /grader/healthcare_note_grader
   - id: finance_record
     name: finance_record
     difficulty: hard
-    grader: finance_record_grader
+    grader: /grader/finance_record_grader
   - id: education_record
     name: education_record
     difficulty: medium
-    grader: education_record_grader
+    grader: /grader/education_record_grader
   - id: legal_disclosure
     name: legal_disclosure
     difficulty: hard
-    grader: legal_disclosure_grader
+    grader: /grader/legal_disclosure_grader
   - id: hr_portal
     name: hr_portal
     difficulty: medium
-    grader: hr_portal_grader
+    grader: /grader/hr_portal_grader
