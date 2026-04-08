@@ -19,12 +19,15 @@ Maskguard Openenv Environment is a real-world reinforcement learning environment
 Real organizations must redact sensitive data before documents can be stored, shared, or used for downstream AI workflows. This environment models that production-style problem as an RL task, so agents must make sequential masking decisions, recover from missed entities, and optimize toward compliant document handling rather than solving a toy benchmark.
 
 ## Environment Design
-The core environment lives in [env.py](/Users/rnr/Documents/maskguard_openenv/env.py) as `MaskGuardEnv`. The scaffold wrapper in [server/maskguard_openenv_environment.py](/Users/rnr/Documents/maskguard_openenv/server/maskguard_openenv_environment.py) preserves the template naming convention while delegating behavior to the RL environment. The environment implements `reset()`, `step()`, `validate()`, `submit()`, and `state()`.
+The core environment lives in [env.py](env.py) as `MaskGuardEnv`. The scaffold wrapper in [server/maskguard_openenv_environment.py](server/maskguard_openenv_environment.py) preserves the template naming convention while delegating behavior to the RL environment. The environment implements `reset()`, `step()`, `validate()`, `submit()`, and `state()`.
 
 Built-in task variants with agent graders:
 - `contact_masking`: `easy`, graded by `contact_masking_grader`
 - `healthcare_note`: `medium`, graded by `healthcare_note_grader`
-- `finance_record`: `hard`, graded by `finance_record_grader`, with multi-entity financial records, distractor references, and exploit-aware validation
+- `finance_record`: `hard`, graded by `finance_record_grader`
+- `education_record`: `medium`, graded by `education_record_grader`
+- `legal_disclosure`: `hard`, graded by `legal_disclosure_grader`
+- `hr_portal`: `medium`, graded by `hr_portal_grader`
 
 ## Observation Space
 Each observation contains:
@@ -47,7 +50,7 @@ Each step returns the core observation fields requested for the environment:
 - `step_count`
 
 ## Action Space
-Supported actions are defined in [actions.py](/Users/rnr/Documents/maskguard_openenv/actions.py):
+Supported actions are defined in [actions.py](actions.py):
 - `detect_entity`
 - `mask_entity`
 - `skip_entity`
@@ -56,7 +59,7 @@ Supported actions are defined in [actions.py](/Users/rnr/Documents/maskguard_ope
 - `submit_result`
 
 ## Reward Function
-Reward shaping is implemented in [rewards.py](/Users/rnr/Documents/maskguard_openenv/rewards.py). Raw shaping captures partial progress, and external rewards are normalized to `0.0` to `1.0`:
+Reward shaping is implemented in [rewards.py](rewards.py). Raw shaping captures partial progress, and external rewards are normalized to `0.0` to `1.0`:
 - correct mask: positive signal
 - missed entity: negative signal
 - overmask: negative signal
@@ -70,7 +73,7 @@ normalized_reward = clamp(raw_reward, 0.0, 1.0)
 ```
 
 ## Policy Modes
-Policy definitions are implemented in [policy_modes.py](/Users/rnr/Documents/maskguard_openenv/policy_modes.py):
+Policy definitions are implemented in [policy_modes.py](policy_modes.py):
 - `GDPR`
 - `HIPAA`
 - `FINANCE`
@@ -88,7 +91,7 @@ Policy definitions are implemented in [policy_modes.py](/Users/rnr/Documents/mas
 The hard finance task intentionally includes benign reference text that must remain visible, multiple financial identifiers, and stronger penalties for incomplete masking so graders can distinguish careful agents from brittle ones.
 
 ## Evaluation Metrics
-Evaluation is implemented in [evaluator.py](/Users/rnr/Documents/maskguard_openenv/evaluator.py) and returns:
+Evaluation is implemented in [evaluator.py](evaluator.py) and returns:
 - precision
 - recall
 - F1 score
@@ -102,10 +105,10 @@ We evaluate agent performance using:
 - Compliance Score
 
 ## Dataset Runner
-The dataset runner in [dataset_runner.py](/Users/rnr/Documents/maskguard_openenv/dataset_runner.py) loads [datasets/sample_inputs.json](/Users/rnr/Documents/maskguard_openenv/datasets/sample_inputs.json), evaluates the sample dataset, and also runs the built-in `easy`, `medium`, and `hard` tasks with agent graders.
+The dataset runner in [dataset_runner.py](dataset_runner.py) loads [datasets/sample_inputs.json](datasets/sample_inputs.json), evaluates the sample dataset, and also runs the built-in tasks with agent graders.
 
 Sample dataset:
-- [datasets/sample_inputs.json](/Users/rnr/Documents/maskguard_openenv/datasets/sample_inputs.json)
+- [datasets/sample_inputs.json](datasets/sample_inputs.json)
 
 Used for environment evaluation.
 
@@ -138,7 +141,7 @@ Validated baseline results from the current deterministic inference and dataset 
   - average task score: `0.990`
 
 ## API Usage
-The FastAPI application in [server/app.py](/Users/rnr/Documents/maskguard_openenv/server/app.py) exposes:
+The FastAPI application in [server/app.py](server/app.py) exposes:
 - `GET /health`
 - `GET /state`
 - `POST /reset`
@@ -149,7 +152,7 @@ The FastAPI application in [server/app.py](/Users/rnr/Documents/maskguard_openen
 For normal testing, you only need a very small subset of fields.
 
 Use `POST /reset` with:
-- `task_name`: `contact_masking`, `healthcare_note`, or `finance_record`
+- `task_name`: `contact_masking`, `healthcare_note`, `finance_record`, `education_record`, `legal_disclosure`, or `hr_portal`
 - `policy_mode`: `GDPR`, `HIPAA`, or `FINANCE`
 
 Use `POST /step` with:

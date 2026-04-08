@@ -4,6 +4,14 @@ Inference Script Example
 This inference runner uses the OpenAI client library and a deterministic policy
 for reproducible MaskGuardEnv baseline scores while preserving the required
 OpenEnv stdout contract.
+
+Available tasks:
+- contact_masking (easy)
+- healthcare_note (medium)
+- finance_record (hard)
+- education_record (medium)
+- legal_disclosure (hard)
+- hr_portal (medium)
 """
 
 import json
