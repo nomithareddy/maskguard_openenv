@@ -26,7 +26,6 @@ from evaluator import MaskGuardEvaluator
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
-API_KEY = os.getenv("API_KEY") or HF_TOKEN
 TASK_NAME = os.getenv("MASKGUARD_TASK", "contact_masking")
 BENCHMARK = os.getenv("MASKGUARD_BENCHMARK", "maskguard_openenv")
 MAX_STEPS = 12
@@ -143,15 +142,14 @@ def main() -> None:
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        # Hackathon validator injects API_KEY + API_BASE_URL for the LiteLLM proxy.
-        # If missing, we fall back to deterministic mode to allow Task Validation to pass.
+        # Hackathon requirement: Use API_BASE_URL, MODEL_NAME, and HF_TOKEN.
         client: Optional[OpenAI] = None
         if USE_LLM:
-            if API_KEY:
-                client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+            if HF_TOKEN:
+                client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
                 _touch_llm_proxy(client)
             else:
-                print("# [INFO] API_KEY not found. Falling back to deterministic policy for validation.", flush=True)
+                print("# [INFO] HF_TOKEN not found. Falling back to deterministic policy.", flush=True)
 
         torch_policy = None
 
