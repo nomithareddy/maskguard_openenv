@@ -34,8 +34,13 @@ app = create_app(
     max_concurrent_envs=1,
 )
 
-singleton_environment = MaskguardOpenenvEnvironment()
+# Clear default OpenEnv routes so they don't shadow our custom endpoints
+app.router.routes = [
+    route for route in app.router.routes
+    if getattr(route, "path", None) not in ["/reset", "/step", "/submit", "/state", "/health", "/tasks"]
+]
 
+singleton_environment = MaskguardOpenenvEnvironment()
 
 # --------------------------------------------------------------------------- #
 # Request models

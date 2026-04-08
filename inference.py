@@ -43,7 +43,7 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{reward:.2f}" for reward in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 
@@ -136,7 +136,7 @@ def main() -> None:
 
     try:
         # Hackathon validator injects API_KEY + API_BASE_URL for the LiteLLM proxy.
-        if API_KEY is None:
+        if USE_LLM and API_KEY is None:
             raise ValueError("API_KEY environment variable is required")
 
         torch_policy = None
