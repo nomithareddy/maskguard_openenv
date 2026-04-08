@@ -7,7 +7,14 @@
 """Dataset runner for the Maskguard Openenv environment."""
 
 import json
+import os
+import sys
 from pathlib import Path
+
+# Explicitly add the project root to sys.path
+project_root = str(Path(__file__).parent.absolute())
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from env import MaskGuardEnv, TASK_LIBRARY
 from evaluator import MaskGuardEvaluator

@@ -44,3 +44,17 @@ server = "maskguard_openenv.server.app:main"
 include-package-data = true
 packages = ["maskguard_openenv", "maskguard_openenv.server"]
 package-dir = { "maskguard_openenv" = ".", "maskguard_openenv.server" = "server" }
+
+[tool.pyrefly]
+project-includes = ["."]
+search-path = ["."]
+
+[tool.pyright]
+include = ["."]
+extraPaths = ["."]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportMissingImports = "none"
+reportMissingModuleSource = "none"

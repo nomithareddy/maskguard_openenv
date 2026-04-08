@@ -7,7 +7,15 @@
 FastAPI application for the Maskguard Openenv Environment.
 """
 import os
+import sys
 import yaml
+
+# Path Anchor: Force the project root into sys.path
+# This resolves "Module Not Found" errors in environments with misaligned roots.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from typing import Any, Dict, List, Optional
 from fastapi import Body
 from pydantic import BaseModel, Field
@@ -20,11 +28,14 @@ except Exception as e:
     ) from e
 
 try:
-    from ..models import MaskguardOpenenvAction, MaskguardOpenenvObservation
-    from .maskguard_openenv_environment import MaskguardOpenenvEnvironment
-except ImportError:
     from models import MaskguardOpenenvAction, MaskguardOpenenvObservation
     from server.maskguard_openenv_environment import MaskguardOpenenvEnvironment
+except ImportError:
+    # Fallback for alternative execution contexts
+    import models
+    from maskguard_openenv_environment import MaskguardOpenenvEnvironment
+    MaskguardOpenenvAction = models.MaskguardOpenenvAction
+    MaskguardOpenenvObservation = models.MaskguardOpenenvObservation
 
 app = create_app(
     MaskguardOpenenvEnvironment,
@@ -182,7 +193,7 @@ def reset_environment(
 def step_environment(
     request: StepRequest = Body(...),
 ) -> Dict[str, Any]:
-    action = request.dict(exclude_none=True)
+    action = request.model_dump(exclude_none=True)
     obs, reward, done, info = singleton_environment._env.step(action)
 
     # Grader: prefer info > obs fallback
