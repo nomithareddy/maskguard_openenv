@@ -128,14 +128,14 @@ The environment supports injecting arbitrary text + target entity types via `res
 ## Baseline Scores
 Validated baseline results from the current deterministic inference and dataset pipeline:
 - `python inference.py`
-  - final score: `1.000`
-  - rewards: `0.53, 0.63, 0.63, 0.79, 0.79`
+  - final grader score: `0.99` (strictly inside `(0, 1)` for hackathon validation)
+  - rewards: `0.50, 0.60, 0.60, 0.75, 0.75`
 - `python dataset_runner.py`
   - precision: `1.000`
   - recall: `1.000`
   - F1 score: `1.000`
-  - average reward: `3.357`
-  - average task score: `1.000`
+  - average reward: `3.650`
+  - average task score: `0.990`
 
 ## API Usage
 The FastAPI application in [server/app.py](/Users/rnr/Documents/maskguard_openenv/server/app.py) exposes:

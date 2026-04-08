@@ -46,7 +46,8 @@ def check_tasks() -> None:
             assert 0.0 <= reward <= 1.0, f"recheck reward out of range for {task_name}"
         _, reward, _, info = env.step({"action_type": "validate_document"})
         assert 0.0 <= reward <= 1.0, f"validate reward out of range for {task_name}"
-        assert 0.0 <= info["validation"]["score"] <= 1.0, f"score out of range for {task_name}"
+        s = info["validation"]["score"]
+        assert 0.0 < float(s) < 1.0, f"grader score must be strictly in (0,1) for {task_name}, got {s}"
         assert info["validation"]["grader"]["grader_name"] == f"{task_name}_grader"
         assert TASK_LIBRARY[task_name]["difficulty"] == info["validation"]["grader"]["difficulty"]
 

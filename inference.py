@@ -13,6 +13,7 @@ from typing import List, Optional
 from openai import OpenAI
 
 from env import MaskGuardEnv
+from evaluator import MaskGuardEvaluator
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
@@ -196,12 +197,13 @@ def main() -> None:
 
         validation_result = env.validate()
         success = bool(validation_result.get("compliant"))
-        score = float(validation_result.get("score") or 0.0)
-        score = max(0.0, min(1.0, score))
+        score = MaskGuardEvaluator.clamp_grader_score(
+            validation_result.get("score", 0.0)
+        )
     except Exception as exc:
         last_error = str(exc)
         success = False
-        score = 0.0
+        score = MaskGuardEvaluator.clamp_grader_score(0.0)
     finally:
         # Best-effort close if the environment provides it.
         try:

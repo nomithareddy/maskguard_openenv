@@ -4,7 +4,10 @@ from typing import Dict
 class MaskGuardEvaluator:
     """Compute structured evaluation metrics for masking performance."""
 
-    SCORE_EPSILON = 0.001
+    # Task grader scores must be strictly in (0, 1). Values near endpoints break when
+    # formatters use 2 decimal places (0.001 -> "0.00", 0.999 -> "1.00").
+    GRADER_SCORE_MIN = 0.01
+    GRADER_SCORE_MAX = 0.99
 
     @staticmethod
     def precision(true_positives: int, false_positives: int) -> float:
@@ -91,9 +94,16 @@ class MaskGuardEvaluator:
         return {
             "grader_name": f"{task_name}_grader",
             "difficulty": difficulty,
-            "score": cls._strict_unit_interval(raw_score),
+            "score": cls.clamp_grader_score(raw_score),
         }
 
     @classmethod
-    def _strict_unit_interval(cls, value: float) -> float:
-        return max(cls.SCORE_EPSILON, min(1.0 - cls.SCORE_EPSILON, value))
+    def clamp_grader_score(cls, value: float) -> float:
+        """Map a raw score into (0, 1) with room for two-decimal formatting."""
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return cls.GRADER_SCORE_MIN
+        if v != v:  # NaN
+            return cls.GRADER_SCORE_MIN
+        return max(cls.GRADER_SCORE_MIN, min(cls.GRADER_SCORE_MAX, v))
