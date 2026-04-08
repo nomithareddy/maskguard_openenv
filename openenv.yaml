@@ -15,6 +15,7 @@ observation_space:
   - task_name
   - difficulty
   - score
+  - grader
 action_space:
   - detect_entity
   - mask_entity
