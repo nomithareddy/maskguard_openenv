@@ -156,7 +156,7 @@ def list_tasks() -> Dict[str, Any]:
 
 @app.get("/state")
 def get_state() -> Dict[str, Any]:
-    obs = singleton_environment._env.state()
+    obs = singleton_environment._env._build_observation()
     grader = obs.get("grader") or singleton_environment._env._build_grader_result(
         singleton_environment._env._progress_score()
     )
@@ -195,10 +195,12 @@ def step_environment(
     obs, reward, done, info = singleton_environment._env.step(action)
 
     # Grader: prefer info > obs fallback
+    _submission = info.get("submission")
+    _validation = info.get("validation")
     grader = (
         info.get("grader")
-        or (info.get("submission") or {}).get("grader")
-        or (info.get("validation") or {}).get("grader")
+        or ((_submission if isinstance(_submission, dict) else {}).get("grader"))
+        or ((_validation if isinstance(_validation, dict) else {}).get("grader"))
         or obs.get("grader")
         or {}
     )
@@ -242,7 +244,7 @@ def _run_grader_for_task(task_name: str) -> Dict[str, Any]:
     from env import MaskGuardEnv, TASK_LIBRARY
     try:
         task_config = TASK_LIBRARY.get(task_name, {})
-        policy_mode = task_config.get("policy_mode", "GDPR")
+        policy_mode = str(task_config.get("policy_mode", "GDPR"))
 
         # Isolated local environment instead of global singleton
         local_env = MaskGuardEnv(task_name=task_name, policy_mode=policy_mode)
