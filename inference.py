@@ -184,6 +184,8 @@ def main() -> None:
 
             if action.get("action_type") == "validate_document":
                 validation = info.get("validation") or {}
+                if not isinstance(validation, dict):
+                    validation = {}
                 if validation.get("compliant"):
                     action = {"action_type": "submit_result"}
                     action_str = json.dumps(action, separators=(",", ":"))
