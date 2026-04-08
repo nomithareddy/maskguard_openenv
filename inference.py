@@ -190,11 +190,8 @@ def main() -> None:
                     observation, reward, done, info = env.step(action)
                     rewards.append(reward)
                     steps_taken += 1
-                    last_error = (
-                        info.get("last_action_error")
-                        or info.get("error")
-                        or None
-                    )
+                    _raw_error = info.get("last_action_error") or info.get("error")
+                    last_error = str(_raw_error) if _raw_error is not None else None
                     log_step(
                         step=steps_taken,
                         action=action_str,
