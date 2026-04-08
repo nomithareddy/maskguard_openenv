@@ -27,6 +27,7 @@ dependencies = [
     # "openspiel>=1.0.0",
     # "smolagents>=1.22.0,<2",
     "openai>=1.30.0",
+    "PyYAML>=6.0",
     "types-PyYAML>=6.0.12.12",
 ]
 
@@ -55,7 +56,7 @@ include = ["."]
 extraPaths = ["."]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.11"
+pythonVersion = "3.13"
 typeCheckingMode = "basic"
 reportMissingImports = "none"
 reportMissingModuleSource = "none"
