@@ -262,13 +262,17 @@ def _run_grader_for_task(task_name: str) -> Dict[str, Any]:
         local_env.step({"action_type": "validate_document"})
         obs, reward, done, info = local_env.step({"action_type": "submit_result"})
 
+        _sub = info.get("submission")
+        _val = info.get("validation")
         grader = (
             info.get("grader")
-            or (info.get("submission") or {}).get("grader")
-            or (info.get("validation") or {}).get("grader")
+            or ((_sub if isinstance(_sub, dict) else {}).get("grader"))
+            or ((_val if isinstance(_val, dict) else {}).get("grader"))
             or obs.get("grader")
             or {}
         )
+        if not isinstance(grader, dict):
+            grader = {}
         # Ensure score is strictly in (0, 1) and present at top level
         score = grader.get("score", 0.99)
         return {
