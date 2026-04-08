@@ -34,10 +34,10 @@ app = create_app(
     max_concurrent_envs=1,
 )
 
-# Clear default OpenEnv routes so they don't shadow our custom endpoints
+# Surgical override: Remove standard metadata and tasks routes so our custom ones take over
 app.router.routes = [
     route for route in app.router.routes
-    if getattr(route, "path", None) not in ["/reset", "/step", "/submit", "/state", "/health", "/tasks"]
+    if getattr(route, "path", None) not in ["/metadata", "/tasks"]
 ]
 
 singleton_environment = MaskguardOpenenvEnvironment()
@@ -87,9 +87,24 @@ def _extract_grader(result: Dict[str, Any]) -> Dict[str, Any]:
 # Endpoints
 # --------------------------------------------------------------------------- #
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health_check() -> Dict[str, Any]:
     return {"status": "ok", "environment": "maskguard_openenv"}
+
+
+@app.get("/metadata", tags=["Environment Info"])
+def get_metadata() -> Dict[str, Any]:
+    """
+    Overridden metadata endpoint to include the 'tasks' list.
+    Some validators use this for task/grader discovery.
+    """
+    tasks = list_tasks()["tasks"]
+    return {
+        "name": "maskguard_openenv",
+        "description": "Policy-aware OpenEnv PII masking environment.",
+        "version": "1.0.0",
+        "tasks": tasks  # ← CRITICAL: Discoverable tasks
+    }
 
 
 @app.get("/tasks")
@@ -111,6 +126,8 @@ def list_tasks() -> Dict[str, Any]:
             {"id": "healthcare_note",    "name": "healthcare_note", "difficulty": "medium", "grader": "healthcare_note_grader"},
             {"id": "finance_record",     "name": "finance_record",  "difficulty": "hard",   "grader": "finance_record_grader"},
             {"id": "education_record",   "name": "education_record","difficulty": "medium", "grader": "education_record_grader"},
+            {"id": "legal_disclosure",   "name": "legal_disclosure", "difficulty": "hard",   "grader": "legal_disclosure_grader"},
+            {"id": "hr_portal",          "name": "hr_portal",        "difficulty": "medium", "grader": "hr_portal_grader"},
         ]
     return {"tasks": tasks}
 
@@ -249,32 +266,52 @@ def _run_grader_for_task(task_name: str) -> Dict[str, Any]:
         }
 
 
-@app.post("/grader/contact_masking_grader")
-@app.post("/grade/contact_masking_grader")
-@app.post("/contact_masking_grader")
+@app.post("/grader/contact_masking_grader", tags=["grader"])
+@app.get("/grader/contact_masking_grader", tags=["grader"])
+@app.post("/contact_masking_grader", tags=["grader"])
+@app.get("/contact_masking_grader", tags=["grader"])
 def grade_contact_masking() -> Dict[str, Any]:
     return _run_grader_for_task("contact_masking")
 
 
-@app.post("/grader/healthcare_note_grader")
-@app.post("/grade/healthcare_note_grader")
-@app.post("/healthcare_note_grader")
+@app.post("/grader/healthcare_note_grader", tags=["grader"])
+@app.get("/grader/healthcare_note_grader", tags=["grader"])
+@app.post("/healthcare_note_grader", tags=["grader"])
+@app.get("/healthcare_note_grader", tags=["grader"])
 def grade_healthcare_note() -> Dict[str, Any]:
     return _run_grader_for_task("healthcare_note")
 
 
-@app.post("/grader/finance_record_grader")
-@app.post("/grade/finance_record_grader")
-@app.post("/finance_record_grader")
+@app.post("/grader/finance_record_grader", tags=["grader"])
+@app.get("/grader/finance_record_grader", tags=["grader"])
+@app.post("/finance_record_grader", tags=["grader"])
+@app.get("/finance_record_grader", tags=["grader"])
 def grade_finance_record() -> Dict[str, Any]:
     return _run_grader_for_task("finance_record")
 
 
-@app.post("/grader/education_record_grader")
-@app.post("/grade/education_record_grader")
-@app.post("/education_record_grader")
+@app.post("/grader/education_record_grader", tags=["grader"])
+@app.get("/grader/education_record_grader", tags=["grader"])
+@app.post("/education_record_grader", tags=["grader"])
+@app.get("/education_record_grader", tags=["grader"])
 def grade_education_record() -> Dict[str, Any]:
     return _run_grader_for_task("education_record")
+
+
+@app.post("/grader/legal_disclosure_grader", tags=["grader"])
+@app.get("/grader/legal_disclosure_grader", tags=["grader"])
+@app.post("/legal_disclosure_grader", tags=["grader"])
+@app.get("/legal_disclosure_grader", tags=["grader"])
+def grade_legal_disclosure() -> Dict[str, Any]:
+    return _run_grader_for_task("legal_disclosure")
+
+
+@app.post("/grader/hr_portal_grader", tags=["grader"])
+@app.get("/grader/hr_portal_grader", tags=["grader"])
+@app.post("/hr_portal_grader", tags=["grader"])
+@app.get("/hr_portal_grader", tags=["grader"])
+def grade_hr_portal() -> Dict[str, Any]:
+    return _run_grader_for_task("hr_portal")
 
 
 # --------------------------------------------------------------------------- #

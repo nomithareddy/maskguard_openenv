@@ -49,6 +49,25 @@ TASK_LIBRARY = {
         "policy_mode": "GDPR",
         "target_entities": ["PERSON", "ID", "EMAIL", "PHONE"],
     },
+    "legal_disclosure": {
+        "difficulty": "hard",
+        "text": (
+            "Internal Legal Counsel ONLY: Case #LEGAL-9922. Plaintiff: Robert Johnson. "
+            "Evidence includes email robert.j@lawyers.com and phone 212-555-0199. "
+            "Financial settlement account is 9877665544. Do not disclose outside the legal portal."
+        ),
+        "policy_mode": "GDPR",
+        "target_entities": ["PERSON", "ID", "EMAIL", "PHONE", "ACCOUNT"],
+    },
+    "hr_portal": {
+        "difficulty": "medium",
+        "text": (
+            "HR Record Update: Employee Sarah Williams (EMP-4455). Contact: sarah.w@corp.com or 555-0123. "
+            "Status: Onboarding into the HIPAA-compliant healthcare benefits track."
+        ),
+        "policy_mode": "HIPAA",
+        "target_entities": ["PERSON", "ID", "EMAIL", "PHONE"],
+    },
 }
 
 
