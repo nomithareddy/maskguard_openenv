@@ -42,22 +42,26 @@ evaluation_metrics:
   - compliance_score
   - score
 tasks:
-  - name: contact_masking
+  - id: contact_masking
+    name: contact_masking
     difficulty: easy
     grader: contact_masking_grader
     graders:
       - contact_masking_grader
-  - name: healthcare_note
+  - id: healthcare_note
+    name: healthcare_note
     difficulty: medium
     grader: healthcare_note_grader
     graders:
       - healthcare_note_grader
-  - name: finance_record
+  - id: finance_record
+    name: finance_record
     difficulty: hard
     grader: finance_record_grader
     graders:
       - finance_record_grader
-  - name: education_record
+  - id: education_record
+    name: education_record
     difficulty: medium
     grader: education_record_grader
     graders:

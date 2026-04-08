@@ -107,9 +107,10 @@ def list_tasks() -> Dict[str, Any]:
     except Exception:
         # Fallback hardcoded list so the validator never sees an empty response
         tasks = [
-            {"name": "contact_masking",  "difficulty": "easy",   "grader": "contact_masking_grader"},
-            {"name": "healthcare_note",  "difficulty": "medium",  "grader": "healthcare_note_grader"},
-            {"name": "finance_record",   "difficulty": "hard",    "grader": "finance_record_grader"},
+            {"id": "contact_masking",    "name": "contact_masking", "difficulty": "easy",   "grader": "contact_masking_grader"},
+            {"id": "healthcare_note",    "name": "healthcare_note", "difficulty": "medium", "grader": "healthcare_note_grader"},
+            {"id": "finance_record",     "name": "finance_record",  "difficulty": "hard",   "grader": "finance_record_grader"},
+            {"id": "education_record",   "name": "education_record","difficulty": "medium", "grader": "education_record_grader"},
         ]
     return {"tasks": tasks}
 
@@ -228,21 +229,29 @@ def _run_grader_for_task(task_name: str) -> Dict[str, Any]:
 
 
 @app.post("/grader/contact_masking_grader")
+@app.post("/grade/contact_masking_grader")
+@app.post("/contact_masking_grader")
 def grade_contact_masking() -> Dict[str, Any]:
     return _run_grader_for_task("contact_masking")
 
 
 @app.post("/grader/healthcare_note_grader")
+@app.post("/grade/healthcare_note_grader")
+@app.post("/healthcare_note_grader")
 def grade_healthcare_note() -> Dict[str, Any]:
     return _run_grader_for_task("healthcare_note")
 
 
 @app.post("/grader/finance_record_grader")
+@app.post("/grade/finance_record_grader")
+@app.post("/finance_record_grader")
 def grade_finance_record() -> Dict[str, Any]:
     return _run_grader_for_task("finance_record")
 
 
 @app.post("/grader/education_record_grader")
+@app.post("/grade/education_record_grader")
+@app.post("/education_record_grader")
 def grade_education_record() -> Dict[str, Any]:
     return _run_grader_for_task("education_record")
 
