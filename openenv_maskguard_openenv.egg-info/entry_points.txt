@@ -1,2 +1,0 @@
-[console_scripts]
-server = maskguard_openenv.server.app:main
