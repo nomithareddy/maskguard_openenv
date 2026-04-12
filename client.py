@@ -12,7 +12,12 @@ from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
 from openenv.core.env_server.types import State
 
-from .models import MaskguardOpenenvAction, MaskguardOpenenvObservation
+
+try:
+    from .models import MaskguardOpenenvAction, MaskguardOpenenvObservation
+except ImportError:
+    # Fallback to absolute import if run as a script
+    from models import MaskguardOpenenvAction, MaskguardOpenenvObservation
 
 
 class MaskguardOpenenvEnv(
